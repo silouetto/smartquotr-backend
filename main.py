@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://app.smartquotr.com"],
+    allow_origins=["https://www.smartquotr.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,3 +32,8 @@ app.include_router(helpbot_router)
 @app.exception_handler(404)
 async def not_found(request, exc):
     return HTMLResponse(content="🚫 Page not found.", status_code=404)
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
