@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartQuotr</title>
+  <link rel="stylesheet" href="static/style.css" />
+  <link rel="icon" href="/static/logo.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#000000" />
+</head>
+<body>
+  <div id="introScreen" class="overlay">
+    <img src="/static/logo.png" alt="SmartQuotr Logo" class="intro-logo swirl">
+    <p class="disclaimer">By continuing, you acknowledge that SmartQuotr is for estimation purposes only. CURRENTLY UNDER CONSTRUCTION, take a look around for a bit, we'll be up running soon! Use at your own risk.</p>
+    <button id="continueBtn">Continue</button>
+  </div>
+
+  <header>
+    <img src="/static/logo.png" alt="SmartQuotr Logo" class="logo">
+    <h1>SmartQuotr</h1>
+    <p>DIY, Auto, Home, Garden and Junk Project and Repair Estimates Powered by AI</p>
+  </header>
+
+  <main style="display:none">
+    <div id="projectTypeScreen">
+      <h2>Select Your Project Type</h2>
+      <div class="tabs">
+        <button data-project="DIY">🛠️ DIY</button>
+        <button data-project="Auto Repair">🚗 Auto</button>
+        <button data-project="Junk Removal">🗑️ Junk</button>
+        <button id="unlockBtn">🎁 Watch Ad to Use GPT-4 coming soon!</button>
+        <script>
+          document.getElementById("unlockBtn").addEventListener("click", () => {
+            fetch("/gpt4-unlock", { method: "POST" })
+              .then(res => res.json())
+              .then(data => {
+                alert(data.message || "✅ GPT-4 unlocked for 10 minutes!");
+              })
+              .catch(() => {
+                alert("❌ Failed to unlock GPT-4.");
+              });
+          });
+        </script>
+
+      </div>
+    </div>
+
+    <div id="formScreen" style="display:none">
+      <form id="estimateForm">
+        <input type="hidden" name="project_type" id="project_type" value="">
+
+        <label for="fileInput">📷 Upload or Take a Picture:</label>
+        <input type="file" name="file" accept="image/*" capture="environment" id="fileInput" required>
+
+        <label for="intent">🎯 What do you want to do?</label>
+        <input type="text" name="intent" id="intent" required>
+        
+        <!-- ✅ Optional Description Checkbox -->
+        <div style="margin: 1rem 0;">
+          <input type="checkbox" id="showMoreDesc" />
+          <label for="showMoreDesc"> ↑ Click the box to add more project detail</label>
+        </div>
+        
+        <!-- ✅ Optional Description Textarea (initially hidden) -->
+        <div id="extraDescWrapper" style="display: none;">
+          <label for="description">📝 Describe Your Project:</label>
+          <textarea name="description" id="description" rows="4"></textarea>
+        </div>
+        
+        <label>
+          <input type="checkbox" id="includeSketch" name="include_sketch">
+          🖼️ Include Sketch (GPT-4 only coming soon)
+        </label>
+
+        <label>
+          <input type="checkbox" id="includeCoupons" name="include_coupons">
+          🧾 Include Store Coupons (GPT-4 only coming soon)
+        </label>
+        
+        <button type="submit">🛠️ Get Estimate</button>
+      </form>
+    </div>
+
+ 
+    <div id="results" style="display:none">
+      <button id="resetBtn" class="back-btn">🔙 Try Another Project</button>
+      <h2>🧠 Smart Estimate Results</h2>
+      
+      <p><strong>📷 Caption:</strong> <span id="caption"></span></p>
+      <p><strong>🎯 Intent:</strong> <span id="intent_result"></span></p>
+      <p id="descriptionWrapper"><strong>📝 Description:</strong> <span id="description_result"></span></p>
+      <p><strong>🔧 Category:</strong> <span id="category"></span></p>
+      
+      <div id="adviceArea"></div>
+      
+      <div id="laborCostBlock" style="display:none;">
+        <h3>🧾 Labor:</h3>
+        <p id="laborCostValue"></p>
+      </div>
+     
+      
+
+      <div class="product-links">
+        <div id="keywordFilters" class="keyword-filters"></div>
+
+        <button data-store="amazonLinks"onclick="toggleStore('amazonLinks')">Amazon</button>
+        <button data-store="homedepotLinks"onclick="toggleStore('homedepotLinks')">HomeDepot</button>
+        <button data-store="walmartLinks"onclick="toggleStore('walmartLinks')">Walmart</button>
+        <button data-store="temuLinks"onclick="toggleStore('temuLinks')">Temu</button>
+        <button data-store="bestbuyLinks" onclick="toggleStore('bestbuyLinks')">BestBuy</button>
+        <button data-store="harborfreightLinks" onclick="toggleStore('harborfreightLinks')">Harbor Freight</button>
+        <button data-store="autozoneLinks"onclick="toggleStore('autozoneLinks')">Autozone</button>
+        <button data-store="oreillyLinks"onclick="toggleStore('oreillyLinks')">O'Reilly</button>
+        <button data-store="napaLinks" onclick="toggleStore('napaLinks')">NAPA</button>
+      </div>
+        
+      <ul id="amazonLinks" class="store-links"></ul>
+      <ul id="homedepotLinks" class="store-links"></ul>
+      <ul id="walmartLinks" class="store-links"></ul>
+      <ul id="temuLinks" class="store-links"></ul>
+      <ul id="bestbuyLinks" class="store-links"></ul>
+      <ul id="harborfreightLinks" class="store-links"></ul>
+      <ul id="autozoneLinks" class="store-links"></ul>
+      <ul id="oreillyLinks" class="store-links"></ul>
+      <ul id="napaLinks" class="store-links"></ul>
+      
+
+      
+      <div id="partBlock" style="display:none">
+        <h3>🤖 AI-Detected Part Info:</h3>
+        <ul>
+          <li><strong>Part:</strong> <span id="aiPartName"></span></li>
+          <li><strong>Confidence:</strong> <span id="aiConfidence"></span></li>
+          <li><strong>Estimated Price:</strong> $<span id="aiPrice"></span></li>
+          <li><strong>Serial:</strong> <span id="aiSerial"></span></li>  
+        </ul>
+      </div>
+      
+      <div id="videoBlock">
+        <h3>📽️ Video Tutorials</h3>
+        <ul id="aiVideos"></ul>
+      </div>
+      
+      <div id="pdfBlock" style="display:none;">
+        <p><strong>📄 PDF:</strong> <a id="pdfLink" href="#" download="SmartQuotr_Estimate.pdf">Download</a> 
+</p>
+        <button id="showStepsBtn">📋 Step-by-Step</button>
+        <div id="stepsBlock" style="display:none;">
+          <h2>🧱 Instructions</h2>
+          <div id="stepsList"></div>
+        </div>
+      </div>
+  
+  </main>
+  
+  <div id="helpBotToggle">❓ Help</div>
+  
+  <div id="helpBotContainer" style="display:none;">
+    <div id="helpBotHeader">💬 Ask SmartQuotr</div>
+    <div id="helpBotMessages"></div>
+    <input id="helpBotInput" placeholder="Type your question..." />
+    <button id="helpBotSend">Send</button>
+  </div>
+  
+  <div id="loadingOverlay" class="overlay" style="display:none">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Analyzing your project...</p>
+    </div>
+ 
+  </div>
+  
+  <!-- ✅ App Logic -->
+  <script type="module" src="static/script.js"></script>
+
+  
+  <!-- ✅ Register Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/public/sw.js")
+        .then(() => console.log("✅ Service Worker registered!"))
+        .catch(err => console.warn("❌ Service Worker registration failed:", err));
+    }
+  </script>
+</body>
+</html>
