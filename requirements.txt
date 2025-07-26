@@ -1,7 +1,7 @@
 fastapi==0.110.1
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
-pillow==10.3.0
+pillow==10.2.0          # ⬅️ Downgraded to avoid build error
 transformers==4.41.2
 torch==2.3.0
 easyocr==1.7.1
