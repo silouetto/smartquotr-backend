@@ -1,15 +1,15 @@
 fastapi==0.110.1
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
-pillow==10.2.0          # ⬅️ Downgraded to avoid build error
-transformers==4.41.2
-torch==2.3.0
-easyocr==1.7.1
+pillow==10.1.0
 openai==1.30.1
 requests==2.31.0
 beautifulsoup4==4.12.3
-reportlab==4.1.0
 python-dotenv==1.0.1
-setuptools
 typing-extensions
 qrcode[pil]
+# Comment out these if not needed!
+# torch==2.3.0+cpu
+# easyocr==1.7.1
+# transformers==4.41.2
+# reportlab==4.1.0
