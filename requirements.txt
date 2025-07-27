@@ -8,6 +8,7 @@ beautifulsoup4==4.12.3
 python-dotenv==1.0.1
 typing-extensions
 qrcode[pil]
+transformers==4.36.2
 # Comment out these if not needed!
 # torch==2.3.0+cpu
 # easyocr==1.7.1
