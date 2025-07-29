@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+openai.api_key = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_advice(intent, description, project_type, caption, include_steps, use_gpt4=False, include_sketch=False, include_coupons=False):
     try:
@@ -26,7 +27,7 @@ def generate_advice(intent, description, project_type, caption, include_steps, u
 
         model = "gpt-4" if use_gpt4 else "gpt-3.5-turbo"
 
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
@@ -52,7 +53,7 @@ def generate_steps(intent, description, project_type, caption):
 
     prompt = engine.build_steps_prompt()
 
-    response = client.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
