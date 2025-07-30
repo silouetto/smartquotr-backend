@@ -7,7 +7,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-openai.api_key = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#replacing openai.api_key monolith with a new variable and then calling client with that variable
+TheOneAndOnlyKey = os.getenv("OPENAI_API_KEY")
+if not TheOneAndOnlyKey:
+    raise ValueError("OPENAI_API_KEY environment variable not set.")
+client = OpenAI(api_key=TheOneAndOnlyKey)
+# openai.api_key = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_advice(intent, description, project_type, caption, include_steps, use_gpt4=False, include_sketch=False, include_coupons=False):
     try:
