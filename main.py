@@ -20,8 +20,9 @@ app.add_middleware(
 )
 
 # Static file serving
-# - changed /static to /public
-# app.mount("/public", StaticFiles(directory="public"), name="public")
+# - brought them back
+app.mount("/public", StaticFiles(directory="public"), name="public")
+app.mount("/public/static", StaticFiles(directory="static"), name="static")
 
 # Load analyze routes
 app.include_router(analyze_router)
