@@ -10,7 +10,7 @@ import os
 
 app = FastAPI()
 
-# CORS setup
+# ADDED ✅ CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://www.smartquotr.com"],
@@ -19,16 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static file serving
-# - took them out
-# app.mount("/public", StaticFiles(directory="public"), name="public")
-# app.mount("/public/static", StaticFiles(directory="static"), name="static")
+# ADDED ✅ Serve frontend static assets
+if os.path.isdir("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Load analyze routes
+if os.path.isdir("public"):
+    app.mount("/public", StaticFiles(directory="public"), name="public")
+
+# ✅ Register routes
 app.include_router(analyze_router)
-
-# Load helpbot
 app.include_router(helpbot_router)
+
+# ADDED ✅ Root test endpoint
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return "<h1>SmartQuotr Backend is live ✅</h1>"
 
 # ✅ 404 handler (add here)
 @app.exception_handler(404)
