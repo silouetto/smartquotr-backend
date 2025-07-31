@@ -14,9 +14,12 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://www.smartquotr.com"
-        "http://localhost3000"
+        "https://www.smartquotr.com",
+        "https://smartquotr.com",
+        "http://localhost:3000",
+        "https://localhost:3000"
     ],
+
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,3 +51,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
 
+@app.options("/{rest_of_path:path}")
+async def preflight_handler():
+    return JSONResponse(content={"message": "CORS preflight"}, status_code=status.HTTP_200_OK)
