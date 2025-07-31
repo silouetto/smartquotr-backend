@@ -33,7 +33,7 @@ async def analyze_image(
     request: Request,
     file: UploadFile = File(...),
     intent: str = Form(...),
-    description: str = Form(...),
+    description: str = Form(default=""),
     project_type: str = Form(...),
     steps: str = Form(default="off"),
     include_sketch: str = Form(default="off"),
