@@ -315,7 +315,8 @@ async def get_pdf(pdf_id: str):
         return FileResponse(pdf_id, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
 
-@router.get("/", response_class=HTMLResponse)
+# Added methods GET and HEAD
+@router.get("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_form():
     with open("templates/index.html", "r", encoding="utf-8") as f:
         return f.read()
