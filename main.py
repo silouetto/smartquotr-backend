@@ -13,7 +13,10 @@ app = FastAPI()
 # ADDED ✅ CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.smartquotr.com"],
+    allow_origins=[
+        "https://www.smartquotr.com"
+        "http://localhost3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
