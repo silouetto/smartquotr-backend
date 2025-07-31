@@ -3,10 +3,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 
 from routes.analyze import router as analyze_router
 from routes.helpbot import router as helpbot_router
 import os
+import status
 
 app = FastAPI()
 
