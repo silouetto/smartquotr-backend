@@ -24,26 +24,22 @@ from services.scraping import (
     wrap_named_links
 )
 
-
+# merged two analyzes
 router = APIRouter()
-#added api.route
 @router.api_route("/analyze", methods=["POST", "OPTIONS"])
-async def analyze(request: Request):
-    if request.method == "OPTIONS":
-        return Response(status_code=204)
-
-
-@router.post("/analyze")
-async def analyze_image(
+async def analyze_combined(
     request: Request,
-    file: UploadFile = File(...),
-    intent: str = Form(...),
+    file: UploadFile = File(None),
+    intent: str = Form(None),
     description: str = Form(default=""),
-    project_type: str = Form(...),
+    project_type: str = Form(None),
     steps: str = Form(default="off"),
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
+    if request.method == "OPTIONS":
+        return Response(status_code=204)
+
     start = time.time()
     print("📩 /analyze route HIT")
 
