@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from routes.analyze import router as analyze_router
 from routes.helpbot import router as helpbot_router
 import os
-import status
+
 
 app = FastAPI()
 
