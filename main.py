@@ -48,11 +48,12 @@ async def root():
 async def not_found(request, exc):
     return HTMLResponse(content="🚫 Page not found.", status_code=404)
 
+@app.options("/{rest_of_path:path}")
+async def preflight_handler():
+    return JSONResponse(content={"message": "CORS preflight"}, status_code=status.HTTP_200_OK)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
 
-@app.options("/{rest_of_path:path}")
-async def preflight_handler():
-    return JSONResponse(content={"message": "CORS preflight"}, status_code=status.HTTP_200_OK)
