@@ -26,6 +26,11 @@ from services.scraping import (
 
 
 router = APIRouter()
+#added api.route
+@router.api_route("/analyze", methods=["POST", "OPTIONS"])
+async def analyze(request: Request):
+    if request.method == "OPTIONS":
+        return Response(status_code=204)
 
 
 @router.post("/analyze")
