@@ -20,6 +20,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ✅ Register routes
+app.include_router(analyze_router)
+app.include_router(helpbot_router)
 
 # ✅ CORS Debug Logging Middleware
 @app.middleware("http")
@@ -36,9 +39,6 @@ if os.path.isdir("static"):
 if os.path.isdir("public"):
     app.mount("/public", StaticFiles(directory="public"), name="public")
 
-# ✅ Register routes
-app.include_router(analyze_router)
-app.include_router(helpbot_router)
 
 # ADDED ✅ Root test endpoint
 @app.get("/", response_class=HTMLResponse)
