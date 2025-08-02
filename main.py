@@ -19,7 +19,7 @@ app.add_middleware(
         "https://www.smartquotr.com",
         "https://smartquotr.com",                    # 🛠️ required
         "https://smartquotr.vercel.app",             # 🛠️ optional but helpful
-        "http://localhost:3000",                     # 🧪 for dev testing
+        "http://localhost:3000"                     # 🧪 for dev testing
     ],
     allow_credentials=True,
     allow_methods=["*"],
