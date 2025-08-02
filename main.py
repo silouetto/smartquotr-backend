@@ -46,9 +46,10 @@ if os.path.isdir("public"):
 
 
 # ADDED ✅ Root test endpoint
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], response_class=HTMLResponse)
 async def root():
     return "<h1>SmartQuotr Backend is live ✅</h1>"
+
 
 # ✅ 404 handler (add here)
 @app.exception_handler(404)
