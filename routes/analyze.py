@@ -8,6 +8,7 @@ import re
 import difflib
 import time
 import copy
+import Response
 
 from services.vision import caption_image, detect_part
 from services.parts import get_estimate
