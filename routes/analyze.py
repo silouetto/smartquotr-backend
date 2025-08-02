@@ -24,7 +24,8 @@ from services.scraping import (
     scrape_autozone_links, scrape_oreilly_links, scrape_napa_links,
     wrap_named_links
 )
-
+router = APIRouter(
+    
 # added options post cos workaround
 @router.api_route("/analyze")
 async def analyze_image(
