@@ -25,7 +25,27 @@ from services.scraping import (
     wrap_named_links
 )
 router = APIRouter()
-    
+
+# ✅ DIAGNOSTIC ROUTE: isolate crash issues
+@router.post("/analyze-test")
+async def analyze_test(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        mem_used = psutil.Process().memory_info().rss / 1024**2  # in MB
+
+        return {
+            "filename": file.filename,
+            "file_size_kb": round(len(contents) / 1024, 2),
+            "memory_used_mb": round(mem_used, 2),
+            "status": "✅ Upload received. No crash 🔒"
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"❌ Failed to handle upload: {str(e)}"},
+            status_code=500
+        )    
+
 # added options post cos workaround
 @router.api_route("/analyze", methods=["POST", "OPTIONS"])
 async def analyze_image(
