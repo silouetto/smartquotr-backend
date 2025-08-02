@@ -27,7 +27,7 @@ from services.scraping import (
 router = APIRouter()
     
 # added options post cos workaround
-@router.api_route("/analyze")
+@router.api_route("/analyze", methods=["POST", "OPTIONS"])
 async def analyze_image(
     request: Request,
     file: UploadFile = File(None),
