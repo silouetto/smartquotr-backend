@@ -21,6 +21,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ CORS Debug Logging Middleware
+@app.middleware("http")
+async def log_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    print("🔁 Origin:", request.headers.get("origin"))
+    print("🧾 Access-Control-Allow-Origin:", response.headers.get("access-control-allow-origin"))
+    return response
+
 # ADDED ✅ Serve frontend static assets
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
