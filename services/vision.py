@@ -39,7 +39,7 @@ async def caption_image(file: UploadFile):
     # 🧠 BLIP captioning
     image = Image.open(filepath).convert("RGB")
     inputs = processor(images=image, return_tensors="pt")
-    out = caption_model.generate(**inputs)
+    out = caption_model.generate(**inputs, max_new_tokens=2500)
     caption = processor.decode(out[0], skip_special_tokens=True)
 
     image.load()  # ✅ Load fully to avoid lazy errors
