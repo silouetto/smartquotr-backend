@@ -12,14 +12,10 @@ import os
 
 app = FastAPI()
 
-# ADDED ✅ took out localhosts
+# ADDED ✅ took out non www site
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://www.smartquotr.com",
-        "https://smartquotr.com"
-    ],
-
+    allow_origins=["https://www.smartquotr.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
