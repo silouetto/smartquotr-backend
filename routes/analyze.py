@@ -25,10 +25,9 @@ from services.scraping import (
     wrap_named_links
 )
 
-# took out options cos workaround
-router = APIRouter()
-@router.post("/analyze")
-async def analyze_image(
+# added options post cos workaround
+@router.api_route("/analyze", methods=["POST", "OPTIONS"])
+async def analyze_entry(
     request: Request,
     file: UploadFile = File(None),
     intent: str = Form(None),
@@ -38,7 +37,14 @@ async def analyze_image(
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-
+    if request.method == "OPTIONS":
+        return Response(status_code=204)  # Respond to preflight
+        
+    return await analyze_image(
+        request, file, intent, description,
+        project_type, steps, include_sketch, include_coupons
+    ) 
+    
     start = time.time()
     print("📩 /analyze route HIT")
 
