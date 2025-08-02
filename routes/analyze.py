@@ -25,10 +25,10 @@ from services.scraping import (
     wrap_named_links
 )
 
-# merged two analyzes
+# took out options cos workaround
 router = APIRouter()
-@router.api_route("/analyze", methods=["POST", "OPTIONS"])
-async def analyze_combined(
+@router.post("/analyze")
+async def analyze_image(
     request: Request,
     file: UploadFile = File(None),
     intent: str = Form(None),
@@ -38,8 +38,6 @@ async def analyze_combined(
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-    if request.method == "OPTIONS":
-        return Response(status_code=204)
 
     start = time.time()
     print("📩 /analyze route HIT")
