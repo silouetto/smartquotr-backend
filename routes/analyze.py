@@ -27,7 +27,7 @@ from services.scraping import (
 
 # added options post cos workaround
 @router.api_route("/analyze")
-async def analyze_entry(
+async def analyze_image(
     request: Request,
     file: UploadFile = File(None),
     intent: str = Form(None),
