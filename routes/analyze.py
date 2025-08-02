@@ -44,6 +44,24 @@ async def analyze_image(
     start = time.time()
     print("📩 /analyze route HIT")
 
+    # ✅ Added this validation block below
+    if not file:
+        return JSONResponse({"error": "❌ No file received."}, status_code=400)
+
+    print("📸 Uploaded file:", file.filename)
+
+    try:
+        contents = await file.read()
+        from PIL import Image
+        import io
+        image = Image.open(io.BytesIO(contents))
+        image.verify()
+        file.file.seek(0)
+    except Exception as e:
+        print("❌ Image decode failed:", str(e))
+        return JSONResponse({
+            "error": "Server error: ❌ Failed to read image. It may be corrupted or unsupported format."
+        }, status_code=500)
 
     try:
         print("📸 Starting captioning...")
