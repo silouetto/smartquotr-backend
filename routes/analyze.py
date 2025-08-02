@@ -38,6 +38,8 @@ async def analyze_image(
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
+    if request.method == "OPTIONS":
+        return JSONResponse(content={"message": "Preflight OK"}, status_code=200)
    
     start = time.time()
     print("📩 /analyze route HIT")
