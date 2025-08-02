@@ -54,6 +54,7 @@ async def analyze_image(
         contents = await file.read()
         from PIL import Image
         import io
+        img_bytes = io.BytesIO(contents) # NEW
         image = Image.open(io.BytesIO(contents))
         image.verify()
         file.file.seek(0)
@@ -62,7 +63,20 @@ async def analyze_image(
         return JSONResponse({
             "error": "Server error: ❌ Failed to read image. It may be corrupted or unsupported format."
         }, status_code=500)
+    
+    # Rewind bytes and open again (verify() closes it)
+    img_bytes.seek(0)
+    image = Image.open(img_bytes)
 
+    # ✅ Resize to reduce memory usage
+    image.thumbnail((1024, 1024))  # Resize in-place, keeps aspect ratio
+
+    # Optional: if you pass image onward (e.g. to `caption_image`)
+    # convert to file-like again if needed
+    image_io = io.BytesIO()
+    image.save(image_io, format='JPEG')
+    image_io.seek(0)
+    
     try:
         print("📸 Starting captioning...")
         image_path, caption = await caption_image(file)
