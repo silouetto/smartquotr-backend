@@ -26,7 +26,7 @@ from services.scraping import (
 )
 
 # added options post cos workaround
-@router.api_route("/analyze", methods=["POST", "OPTIONS"])
+@router.api_route("/analyze")
 async def analyze_entry(
     request: Request,
     file: UploadFile = File(None),
@@ -37,10 +37,7 @@ async def analyze_entry(
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-    if request.method == "OPTIONS":
-        return Response(status_code=204)  # Respond to preflight
-        
-    
+   
     start = time.time()
     print("📩 /analyze route HIT")
 
