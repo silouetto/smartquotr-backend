@@ -40,10 +40,6 @@ async def analyze_entry(
     if request.method == "OPTIONS":
         return Response(status_code=204)  # Respond to preflight
         
-    return await analyze_image(
-        request, file, intent, description,
-        project_type, steps, include_sketch, include_coupons
-    ) 
     
     start = time.time()
     print("📩 /analyze route HIT")
