@@ -4,47 +4,64 @@ from services.parts import get_estimate, PART_DATABASE
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 from fastapi import UploadFile
-import easyocr
 import shutil
 import uuid
 import os
-import torch
 import cv2
+import torch
+import gc
 import traceback
-
-# 🔁 Load models once
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-caption_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-reader = easyocr.Reader(['en'])
+import psutil
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# 🔁 Lazy-loaded model variables
+caption_processor = None
+caption_model = None
+reader = None  # For easyocr
+
+def log_memory(label=""):
+    proc = psutil.Process()
+    used = proc.memory_info().rss / 1024**2
+    print(f"🐏 {label} Memory used: {used:.2f} MB")
+
 async def caption_image(file: UploadFile):
+    global caption_processor, caption_model
+
     filename = f"temp_{uuid.uuid4().hex}.jpg"
     filepath = os.path.join(UPLOAD_DIR, filename)
 
-    # 💾 Save uploaded file to disk
+    # 💾 Save uploaded file
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # ✅ Ensure OpenCV can read it (guard against corrupted files)
+    # ✅ Ensure OpenCV can read image
     img = cv2.imread(filepath)
     if img is None:
         raise Exception("❌ Failed to read image. It may be corrupted or unsupported format.")
 
-    # 🔍 Resize as preprocessing (optional, ensures consistency)
+    # 🔍 Resize (optional)
     resized = cv2.resize(img, (224, 224))
 
-    # 🧠 BLIP captioning
-    image = Image.open(filepath).convert("RGB")
-    inputs = processor(images=image, return_tensors="pt")
-    out = caption_model.generate(**inputs, max_new_tokens=2500)
-    caption = processor.decode(out[0], skip_special_tokens=True)
+    # 🧠 Lazy load BLIP captioning model
+    if caption_processor is None or caption_model is None:
+        print("📦 Loading BLIP captioning model...")
+        caption_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+        caption_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+        log_memory("After BLIP load")
 
-    image.load()  # ✅ Load fully to avoid lazy errors
-    del image     # ✅ Free memory manually
-    torch.cuda.empty_cache()  # ✅ Clears unused memory (safe on CPU too)
+    # 🧠 Perform captioning
+    image = Image.open(filepath).convert("RGB")
+    image.load()  # ✅ Force full load
+    inputs = caption_processor(images=image, return_tensors="pt")
+    out = caption_model.generate(**inputs, max_new_tokens=250)
+    caption = caption_processor.decode(out[0], skip_special_tokens=True)
+
+    del image, inputs, out  # 🔁 Clean up
+    gc.collect()
+    torch.cuda.empty_cache()
+    log_memory("After captioning")
 
     return filepath, caption
 
@@ -52,13 +69,19 @@ async def caption_image(file: UploadFile):
 def detect_part(image_path: str):
     import difflib
     import threading
-    from services.parts import PART_DATABASE  # use updated monster DB
+    global reader
 
     try:
         print("📷 Reading text from:", image_path)
 
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image file does not exist: {image_path}")
+
+        if reader is None:
+            print("📦 Loading EasyOCR reader...")
+            import easyocr
+            reader = easyocr.Reader(['en'])
+            log_memory("After EasyOCR load")
 
         result = []
 
@@ -100,4 +123,3 @@ def detect_part(image_path: str):
         print("❌ detect_part crashed:", str(e))
         traceback.print_exc()
         return {"name": "Unknown Component", "confidence": 0.0, "serial": None}
-
