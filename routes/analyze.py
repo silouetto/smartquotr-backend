@@ -26,21 +26,35 @@ from services.scraping import (
 )
 router = APIRouter()
 
-# ✅ DIAGNOSTIC ROUTE: isolate crash issues
+# Updated ✅ DIAGNOSTIC ROUTE: isolate crash issues
 @router.post("/analyze-test")
 async def analyze_test(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-        mem_used = psutil.Process().memory_info().rss / 1024**2  # in MB
+    import traceback
 
+    try:
+        print(f"📂 Starting analyze-test for: {file.filename}")
+        contents = await file.read()
+        print(f"📏 File size: {len(contents) / 1024:.2f} KB")
+
+        # Try PIL just to confirm decode
+        from PIL import Image
+        import io
+        image = Image.open(io.BytesIO(contents))
+        image.verify()
+        print("✅ Image verified successfully")
+
+        mem_used = psutil.Process().memory_info().rss / 1024**2
         return {
             "filename": file.filename,
             "file_size_kb": round(len(contents) / 1024, 2),
             "memory_used_mb": round(mem_used, 2),
-            "status": "✅ Upload received. No crash 🔒"
+            "status": "✅ Upload and decode successful"
         }
 
     except Exception as e:
+        print("❌ Exception during /analyze-test:")
+        traceback.print_exc()
+
         return JSONResponse(
             {"error": f"❌ Failed to handle upload: {str(e)}"},
             status_code=500
