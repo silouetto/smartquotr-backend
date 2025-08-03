@@ -8,7 +8,7 @@ import re
 import difflib
 import time
 import copy
-
+import psutil
 
 from services.vision import caption_image, detect_part
 from services.parts import get_estimate
