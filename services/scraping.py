@@ -27,7 +27,7 @@ def scrape_amazon_links(query):
         return wrap_named_links(query, [f"{url}&tag={AMAZON_TAG}"])
 
 # def scrape_homedepot_links(query):
-    return wrap_named_links(query, [f"https://www.homedepot.com/s/{requests.utils.quote(query)}"])
+#    return wrap_named_links(query, [f"https://www.homedepot.com/s/{requests.utils.quote(query)}"])
 
 def scrape_walmart_links(query):
     return wrap_named_links(query, [f"https://www.walmart.com/search?q={requests.utils.quote(query)}"])
@@ -35,11 +35,11 @@ def scrape_walmart_links(query):
 # def scrape_temu_links(query):
     slug = requests.utils.quote(query.lower().replace(" ", "-"))
     url = f"https://www.temu.com/keyword-{slug}.html"
-    return wrap_named_links(query, [url])
+#    return wrap_named_links(query, [url])
 
 # def scrape_bestbuy_links(query):
     url = f"https://www.bestbuy.com/site/searchpage.jsp?st={requests.utils.quote(query)}"
-    return wrap_named_links(query, [url])
+#    return wrap_named_links(query, [url])
 
 def scrape_harborfreight_links(query):
     url = f"https://www.harborfreight.com/search?q={requests.utils.quote(query)}"
@@ -51,10 +51,10 @@ def scrape_autozone_links(query):
     return wrap_named_links(query, [f"https://www.autozone.com/searchresult?searchText={requests.utils.quote(query)}"])
 
 # def scrape_oreilly_links(query):
-    return wrap_named_links(query, [f"https://www.oreillyauto.com/search?q={requests.utils.quote(query)}"])
+#    return wrap_named_links(query, [f"https://www.oreillyauto.com/search?q={requests.utils.quote(query)}"])
 
 # def scrape_napa_links(query):
-    return wrap_named_links(query, [f"https://www.napaonline.com/en/search?text={requests.utils.quote(query)}"])
+#    return wrap_named_links(query, [f"https://www.napaonline.com/en/search?text={requests.utils.quote(query)}"])
 
 def scrape_all_links(advice, project_type, keywords_override=None):
     import re
