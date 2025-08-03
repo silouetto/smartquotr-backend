@@ -69,7 +69,7 @@ async def caption_image(file: UploadFile):
 def detect_part(image_path: str):
     import difflib
     import threading
-    global reader
+   
 
     try:
         print("📷 Reading text from:", image_path)
@@ -77,11 +77,11 @@ def detect_part(image_path: str):
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image file does not exist: {image_path}")
 
-        if reader is None:
-            print("📦 Loading EasyOCR reader...")
-            import easyocr
-            reader = easyocr.Reader(['en'])
-            log_memory("After EasyOCR load")
+        print("📦 Loading EasyOCR reader...")
+        import easyocr
+        reader = easyocr.Reader(['en'], gpu=False)
+        log_memory("After EasyOCR load")
+
 
         result = []
 
@@ -95,11 +95,14 @@ def detect_part(image_path: str):
         thread = threading.Thread(target=run_ocr)
         thread.start()
         thread.join(timeout=10)
-
+        
         if thread.is_alive():
             print("❌ OCR timed out after 10s, killing attempt.")
             return {"name": "Unknown Component", "confidence": 0.0, "serial": None}
-
+        
+        del reader
+        gc.collect()
+        
         text_hits = [res[1].lower() for res in result]
 
         for line in text_hits:
