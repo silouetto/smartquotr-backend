@@ -19,9 +19,10 @@ from services.tutorials import get_youtube_tutorials
 from utils.formatter import format_advice_structured, build_html_blocks
 from utils.gpt_unlock import is_gpt4_unlocked, TEMP_UNLOCKS
 from services.scraping import (
-    scrape_amazon_links, scrape_homedepot_links, scrape_walmart_links,
-    scrape_temu_links, scrape_bestbuy_links, scrape_harborfreight_links,
-    scrape_autozone_links, scrape_oreilly_links, scrape_napa_links,
+    scrape_amazon_links,
+    scrape_walmart_links,
+    scrape_harborfreight_links,
+    scrape_autozone_links,
     wrap_named_links
 )
 router = APIRouter()
