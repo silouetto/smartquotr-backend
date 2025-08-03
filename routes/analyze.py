@@ -90,7 +90,7 @@ async def analyze_image(
         import io
         img_bytes = io.BytesIO(contents) # NEW
         image = Image.open(io.BytesIO(contents))
-        image.verify()
+        image.load() #new from verify
         file.file.seek(0)
     except Exception as e:
         print("❌ Image decode failed:", str(e))
@@ -134,8 +134,8 @@ async def analyze_image(
         gpt4 = is_gpt4_unlocked(request)
 
         # Only include flags if using GPT-4
-        sketch_flag = include_sketch == "on" if gpt4 else False
-        coupon_flag = include_coupons == "on" if gpt4 else False
+        sketch_flag = False # took out include_sketch and coupons
+        coupon_flag = False
         
         # Get advice from GPT
         # ----------------------------- Analyze Core (Inside /analyze) -----------------------------
