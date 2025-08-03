@@ -246,12 +246,17 @@ async def analyze_image(
                 b in a or
                 difflib.SequenceMatcher(None, a, b).ratio() > 0.5
             )
-
-        # ✅ Store keys we care about
+        # COMMENTED OUT EXTRA STORE LINKS
         store_keys = [
-            "amazon_links", "homedepot_links", "walmart_links", "temu_links",
-            "bestbuy_links",
-            "harborfreight_links", "autozone_links", "oreilly_links", "napa_links"
+            "amazon_links",
+            "walmart_links",
+            "harborfreight_links",
+            "autozone_links",
+            # "homedepot_links",
+            # "temu_links",
+            # "bestbuy_links",
+            # "oreilly_links",
+            # "napa_links"
         ]
 
         store_matches = {key: [] for key in store_keys}
@@ -317,17 +322,17 @@ async def analyze_image(
         create_pdf(pdf_id, caption, intent, description, project_type, structured)
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
 
-        # ✅ Map keys to match frontend camelCase IDs
+        # ✅ Map keys to match frontend camelCase IDs   COMMENTED OUT EXTRA LINKS
         snake_to_camel = {
             "amazon_links": "amazonLinks",
-            "homedepot_links": "homedepotLinks",
+            # "homedepot_links": "homedepotLinks",
             "walmart_links": "walmartLinks",
-            "temu_links": "temuLinks",
-            "bestbuy_links": "bestbuyLinks",
+            # "temu_links": "temuLinks",
+            # "bestbuy_links": "bestbuyLinks",
             "harborfreight_links": "harborfreightLinks",
             "autozone_links": "autozoneLinks",
-            "oreilly_links": "oreillyLinks",
-            "napa_links": "napaLinks"
+            # "oreilly_links": "oreillyLinks",
+            # "napa_links": "napaLinks"
         }
 
         camel_case_links = {
