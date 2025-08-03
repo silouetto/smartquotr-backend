@@ -58,13 +58,13 @@ def scrape_autozone_links(query):
 
 def scrape_all_links(advice, project_type, keywords_override=None):
     import re
-    from .scraping import (
-        scrape_amazon_links, 
-        scrape_walmart_links,
-        scrape_harborfreight_links,  
-        scrape_autozone_links,
-        wrap_named_links
-)
+    # from .scraping import (
+    #    scrape_amazon_links, 
+    #    scrape_walmart_links,
+    #    scrape_harborfreight_links,  
+    #    scrape_autozone_links,
+    #    wrap_named_links
+    # )
 
     # 🧠 Use override if provided, else parse from advice text
     if keywords_override:
