@@ -1,6 +1,6 @@
 # services/ai_engine.py
 import os
-import openai
+from openai import OpenAI
 from prompt_engine import PromptEngine
 from dotenv import load_dotenv
 
@@ -11,7 +11,8 @@ load_dotenv()
 TheOneAndOnlyKey = os.getenv("OPENAI_API_KEY")
 if not TheOneAndOnlyKey:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
-openai.api_key = TheOneAndOnlyKey
+
+client = OpenAI(api_key=TheOneAndOnlyKey)
 
 # openai.api_key = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -33,7 +34,7 @@ def generate_advice(intent, description, project_type, caption, include_steps, u
 
         model = "gpt-4" if use_gpt4 else "gpt-3.5-turbo"
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completion.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
@@ -59,7 +60,7 @@ def generate_steps(intent, description, project_type, caption):
 
     prompt = engine.build_steps_prompt()
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
