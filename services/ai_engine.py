@@ -1,6 +1,6 @@
 # services/ai_engine.py
 import os
-import OpenAI
+import openai
 from prompt_engine import PromptEngine
 from dotenv import load_dotenv
 
