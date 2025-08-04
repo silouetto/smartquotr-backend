@@ -12,14 +12,17 @@ import torch
 import gc
 import traceback
 import psutil
+import easyocr  # ✅ Moved to top
+import difflib
+import threading
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# 🔁 Lazy-loaded model variables
+# 🔁 Lazy-loaded global model variables
 caption_processor = None
 caption_model = None
-reader = None  # For easyocr
+reader = None  # Singleton OCR instance
 
 def log_memory(label=""):
     proc = psutil.Process()
@@ -32,33 +35,32 @@ async def caption_image(file: UploadFile):
     filename = f"temp_{uuid.uuid4().hex}.jpg"
     filepath = os.path.join(UPLOAD_DIR, filename)
 
-    # 💾 Save uploaded file
+    # 💾 Save file
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # ✅ Ensure OpenCV can read image
+    # ✅ Verify image is readable
     img = cv2.imread(filepath)
     if img is None:
         raise Exception("❌ Failed to read image. It may be corrupted or unsupported format.")
 
-    # 🔍 Resize (optional)
+    # 🔍 Optional resize
     resized = cv2.resize(img, (224, 224))
 
-    # 🧠 Lazy load BLIP captioning model
+    # 🧠 Load BLIP captioning model once
     if caption_processor is None or caption_model is None:
         print("📦 Loading BLIP captioning model...")
         caption_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
         caption_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
         log_memory("After BLIP load")
 
-    # 🧠 Perform captioning
     image = Image.open(filepath).convert("RGB")
-    image.load()  # ✅ Force full load
+    image.load()
     inputs = caption_processor(images=image, return_tensors="pt")
     out = caption_model.generate(**inputs, max_new_tokens=250)
     caption = caption_processor.decode(out[0], skip_special_tokens=True)
 
-    del image, inputs, out  # 🔁 Clean up
+    del image, inputs, out
     gc.collect()
     torch.cuda.empty_cache()
     log_memory("After captioning")
@@ -66,22 +68,28 @@ async def caption_image(file: UploadFile):
     return filepath, caption
 
 
-def detect_part(image_path: str):
-    import difflib
-    import threading
-   
-
-    try:
-        print("📷 Reading text from:", image_path)
-
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Image file does not exist: {image_path}")
-
-        print("📦 Loading EasyOCR reader...")
-        import easyocr
+def load_easyocr():
+    global reader
+    if reader is None:
+        print("📦 Loading EasyOCR reader (singleton)...")
         reader = easyocr.Reader(['en'], gpu=False)
         log_memory("After EasyOCR load")
 
+
+def detect_part(image_path: str):
+    try:
+        print("📷 Reading text from:", image_path)
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image file does not exist: {image_path}")
+
+        # ✅ Shrink image before OCR (optional)
+        img = cv2.imread(image_path)
+        if img is not None:
+            resized = cv2.resize(img, (640, 480))
+            cv2.imwrite(image_path, resized)
+
+        # ✅ Load OCR reader once
+        load_easyocr()
 
         result = []
 
@@ -95,16 +103,12 @@ def detect_part(image_path: str):
         thread = threading.Thread(target=run_ocr)
         thread.start()
         thread.join(timeout=10)
-        
-        if thread.is_alive():
-            print("❌ OCR timed out after 10s, killing attempt.")
-            return {"name": "Unknown Component", "confidence": 0.0, "serial": None}
-        
-        del reader
-        gc.collect()
-        
-        text_hits = [res[1].lower() for res in result]
 
+        if thread.is_alive():
+            print("❌ OCR timed out after 10s.")
+            return {"name": "Unknown Component", "confidence": 0.0, "serial": None}
+
+        text_hits = [res[1].lower() for res in result]
         for line in text_hits:
             match = difflib.get_close_matches(line, PART_DATABASE.keys(), n=1, cutoff=0.6)
             if match:
@@ -126,3 +130,4 @@ def detect_part(image_path: str):
         print("❌ detect_part crashed:", str(e))
         traceback.print_exc()
         return {"name": "Unknown Component", "confidence": 0.0, "serial": None}
+
