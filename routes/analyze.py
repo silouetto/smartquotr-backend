@@ -141,7 +141,7 @@ async def analyze_image(
         # Get advice from GPT
         # ----------------------------- Analyze Core (Inside /analyze) -----------------------------
         # 🧠 Advice from GPT
-        advice = generate_advice(intent, description, project_type, caption, steps == "on", include_sketch=sketch_flag, include_coupons=coupon_flag, use_gpt4=gpt4)
+        advice = generate_advice(intent, description, project_type, caption, include_steps=False, include_sketch=sketch_flag, include_coupons=coupon_flag, use_gpt4=gpt4)
         print("🧠 GPT advice:\n", advice)
 
         if not advice or not isinstance(advice, str):
