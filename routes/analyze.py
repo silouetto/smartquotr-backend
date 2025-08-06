@@ -320,7 +320,9 @@ async def analyze_image(
 
         # 🧱 Build HTML + PDF
         pdf_id = f"{uuid.uuid4().hex}.pdf"
-        create_pdf(pdf_id, caption, intent, description, project_type, structured)
+        pdf_path = os.path.join("static/pdf", pdf_id)  # ✅ WRITE into a public folder
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)  # ✅ ensure folder exists
+        create_pdf(pdf_path, caption, intent, description, project_type, structured)
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
 
         # ✅ Map keys to match frontend camelCase IDs   COMMENTED OUT EXTRA LINKS
@@ -382,12 +384,14 @@ async def get_step_by_step(data: dict):
         return {"steps": f"❌ Failed to generate steps: {str(e)}"}
 
 
-
+# updated pdf path
 @router.get("/pdf/{pdf_id}")
 async def get_pdf(pdf_id: str):
-    if os.path.exists(pdf_id):
-        return FileResponse(pdf_id, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
+    full_path = os.path.join("static/pdf", pdf_id)  # ✅ locate correct PDF
+    if os.path.exists(full_path):
+        return FileResponse(full_path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
+
 
 # took out methods GET and HEAD
 @router.get("/", response_class=HTMLResponse)
