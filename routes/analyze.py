@@ -320,11 +320,22 @@ async def analyze_image(
 
 
         # 🧱 Build HTML + PDF
+        # ✅ Generate UUID-based filename
         pdf_id = f"{uuid.uuid4().hex}.pdf"
-        temp_dir = tempfile.gettempdir()
-        pdf_path = os.path.join(temp_dir, pdf_id)
+
+        # ✅ Use persistent local directory for storage
+        output_dir = os.path.join(os.getcwd(), "generated_pdfs")
+        os.makedirs(output_dir, exist_ok=True)
+
+        # ✅ Full path for PDF file
+        pdf_path = os.path.join(output_dir, pdf_id)
+
+        # ✅ Create the actual PDF file
         create_pdf(pdf_path, caption, intent, description, project_type, structured)
+
+        # ✅ Generate HTML version
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
+
 
         # ✅ Map keys to match frontend camelCase IDs   COMMENTED OUT EXTRA LINKS
         snake_to_camel = {
