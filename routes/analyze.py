@@ -9,6 +9,7 @@ import difflib
 import time
 import copy
 import psutil
+import tempfile
 
 from services.vision import caption_image, detect_part
 from services.parts import get_estimate
@@ -320,8 +321,8 @@ async def analyze_image(
 
         # 🧱 Build HTML + PDF
         pdf_id = f"{uuid.uuid4().hex}.pdf"
-        pdf_path = os.path.join("static/pdf", pdf_id)  # ✅ WRITE into a public folder
-        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)  # ✅ ensure folder exists
+        temp_dir = tempfile.gettempdir()
+        pdf_path = os.path.join(temp_dir, pdf_id)
         create_pdf(pdf_path, caption, intent, description, project_type, structured)
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
 
@@ -387,7 +388,10 @@ async def get_step_by_step(data: dict):
 # updated pdf path
 @router.get("/pdf/{pdf_id}")
 async def get_pdf(pdf_id: str):
-    full_path = os.path.join("static/pdf", pdf_id)  # ✅ locate correct PDF
+    temp_dir = tempfile.gettempdir()
+    full_path = os.path.join(temp_dir, pdf_id)
+    print("📤 PDF download request:", full_path)
+
     if os.path.exists(full_path):
         return FileResponse(full_path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
