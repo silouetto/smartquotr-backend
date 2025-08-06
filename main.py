@@ -43,8 +43,10 @@ if os.path.isdir("static"):
 
 if os.path.isdir("public"):
     app.mount("/public", StaticFiles(directory="public"), name="public")
-
-
+# added pdf
+if os.path.isdir("pdf"):  # ✅ Add this block
+    app.mount("/pdf", StaticFiles(directory="pdf"), name="pdf")
+    
 # ADDED ✅ Root test endpoint
 @app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], response_class=HTMLResponse)
 async def root():
