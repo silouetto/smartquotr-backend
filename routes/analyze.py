@@ -332,6 +332,8 @@ async def analyze_image(
 
         # ✅ Create the actual PDF file
         create_pdf(pdf_path, caption, intent, description, project_type, structured)
+        print("✅ PDF created at:", pdf_path)
+        print("🗂️ Exists?", os.path.exists(pdf_path))
 
         # ✅ Generate HTML version
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
@@ -399,13 +401,13 @@ async def get_step_by_step(data: dict):
 # updated pdf path
 @router.get("/pdf/{pdf_id}")
 async def get_pdf(pdf_id: str):
-    temp_dir = tempfile.gettempdir()
-    full_path = os.path.join(temp_dir, pdf_id)
-    print("📤 PDF download request:", full_path)
+    path = os.path.join(os.getcwd(), "generated_pdfs", pdf_id)
+    print("📤 PDF download request:", path)
 
-    if os.path.exists(full_path):
-        return FileResponse(full_path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
+
 
 
 # took out methods GET and HEAD
