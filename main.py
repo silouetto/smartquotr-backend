@@ -53,7 +53,12 @@ if os.path.isdir("generated_pdfs"):
 async def root():
     return "<h1>SmartQuotr Backend is live ✅</h1>"
 
-
+# ✅ ADD THIS just below it
+@app.get("/debug/list-pdfs")
+async def list_pdfs():
+    dir_path = os.path.join(os.getcwd(), "generated_pdfs")
+    return {"files": os.listdir(dir_path) if os.path.isdir(dir_path) else "not found"}
+    
 # ✅ 404 handler (add here)
 @app.exception_handler(404)
 async def not_found(request, exc):
