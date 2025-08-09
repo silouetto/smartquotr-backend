@@ -259,6 +259,7 @@ async def analyze_image(
             # "bestbuy_links",
             # "oreilly_links",
             # "napa_links"
+            # "carparts_links",
         ]
 
         store_matches = {key: [] for key in store_keys}
@@ -349,7 +350,9 @@ async def analyze_image(
             "harborfreight_links": "harborfreightLinks",
             "autozone_links": "autozoneLinks",
             # "oreilly_links": "oreillyLinks",
-            # "napa_links": "napaLinks"
+            # "napa_links": "napaLinks",
+            # "carparts_links": "carpartsLinks",
+
         }
 
         camel_case_links = {
