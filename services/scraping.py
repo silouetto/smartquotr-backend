@@ -26,6 +26,26 @@ def scrape_amazon_links(query):
     except:
         return wrap_named_links(query, [f"{url}&tag={AMAZON_TAG}"])
 
+# def scrape_carparts_links(query):
+#    headers = {"User-Agent": "Mozilla/5.0"}
+#    url = f"https://www.carparts.com/search?q={requests.utils.quote(query)}"
+#    try:
+#        res = requests.get(url, headers=headers, timeout=5)
+#        soup = BeautifulSoup(res.text, "html.parser")
+#        links = []
+
+        # CarParts.com products have anchor tags with hrefs like `/details/...`
+#       for a in soup.select("a[href^='/details/']")[:3]:
+#            href = a.get("href")
+#           if href:
+#                full_link = f"https://www.carparts.com{href.split('?')[0]}"
+#                links.append(full_link)
+
+#        return wrap_named_links(query, links or [url])
+#    except Exception as e:
+#        print(f"⚠️ CarParts scrape failed for '{query}':", e)
+#        return wrap_named_links(query, [url])
+
 # def scrape_homedepot_links(query):
 #    return wrap_named_links(query, [f"https://www.homedepot.com/s/{requests.utils.quote(query)}"])
 
@@ -101,6 +121,8 @@ def scrape_all_links(advice, project_type, keywords_override=None):
         "autozone_links": [],
         # "oreilly_links": [],
         # "napa_links": [],
+        # "carparts_links": [],
+
     }
 
     for kw in keywords:
@@ -110,11 +132,13 @@ def scrape_all_links(advice, project_type, keywords_override=None):
         # all_links["temu_links"] += safe(scrape_temu_links, kw)
         # all_links["bestbuy_links"] += safe(scrape_bestbuy_links, kw)
         all_links["harborfreight_links"] += safe(scrape_harborfreight_links, kw)
+        # all_links["carparts_links"] += safe(scrape_carparts_links, kw)
 
 
         if "auto" in project_type.lower():
             all_links["autozone_links"] += safe(scrape_autozone_links, kw)
             # all_links["oreilly_links"] += safe(scrape_oreilly_links, kw)
             # all_links["napa_links"] += safe(scrape_napa_links, kw)
+            # all_links["carparts_links"] += safe(scrape_carparts_links, kw)
 
     return all_links
