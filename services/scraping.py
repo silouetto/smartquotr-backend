@@ -33,14 +33,14 @@ def scrape_amazon_links(query):
 #        res = requests.get(url, headers=headers, timeout=5)
 #        soup = BeautifulSoup(res.text, "html.parser")
 #        links = []
-
-        # CarParts.com products have anchor tags with hrefs like `/details/...`
+#
+#        # CarParts.com products have anchor tags with hrefs like `/details/...`
 #       for a in soup.select("a[href^='/details/']")[:3]:
 #            href = a.get("href")
 #           if href:
 #                full_link = f"https://www.carparts.com{href.split('?')[0]}"
 #                links.append(full_link)
-
+#
 #        return wrap_named_links(query, links or [url])
 #    except Exception as e:
 #        print(f"⚠️ CarParts scrape failed for '{query}':", e)
@@ -75,6 +75,10 @@ def scrape_autozone_links(query):
 
 # def scrape_napa_links(query):
 #    return wrap_named_links(query, [f"https://www.napaonline.com/en/search?text={requests.utils.quote(query)}"])
+
+# def scrape_tonkinparts_links(query):
+#     url = f"https://www.tonkinparts.com/search?q={requests.utils.quote(query)}"
+#     return wrap_named_links(query, [url])
 
 def scrape_all_links(advice, project_type, keywords_override=None):
     import re
@@ -122,7 +126,7 @@ def scrape_all_links(advice, project_type, keywords_override=None):
         # "oreilly_links": [],
         # "napa_links": [],
         # "carparts_links": [],
-
+        # "tonkinparts_links": [],
     }
 
     for kw in keywords:
@@ -132,7 +136,7 @@ def scrape_all_links(advice, project_type, keywords_override=None):
         # all_links["temu_links"] += safe(scrape_temu_links, kw)
         # all_links["bestbuy_links"] += safe(scrape_bestbuy_links, kw)
         all_links["harborfreight_links"] += safe(scrape_harborfreight_links, kw)
-        # all_links["carparts_links"] += safe(scrape_carparts_links, kw)
+        
 
 
         if "auto" in project_type.lower():
@@ -140,5 +144,5 @@ def scrape_all_links(advice, project_type, keywords_override=None):
             # all_links["oreilly_links"] += safe(scrape_oreilly_links, kw)
             # all_links["napa_links"] += safe(scrape_napa_links, kw)
             # all_links["carparts_links"] += safe(scrape_carparts_links, kw)
-
+            # all_links["tonkinparts_links"] += safe(scrape_tonkinparts_links, kw)
     return all_links
