@@ -412,70 +412,108 @@ async def get_pdf(pdf_id: str):
     return {"error": "PDF not found"}
 
 #added new directory and signup page
-import json
 
-DATA_DIR = os.path.join(os.getcwd(), "data")
-os.makedirs(DATA_DIR, exist_ok=True)
-COMPANY_FILE = os.path.join(DATA_DIR, "companies.json")
+# -------------------------------
+# Config
+# -------------------------------
+DATA_FILE = "submissions.json"
+SECRET_TOKEN = "my-super-secret-token"
+TEMP_USER_COMPANIES = []
 
-def load_companies():
-    if not os.path.exists(COMPANY_FILE):
-        return []
-    try:
-        with open(COMPANY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        print("⚠️ Corrupted companies.json, resetting.")
-        return []
+# Ensure file exists
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump([], f)
 
-def save_companies(companies):
-    with open(COMPANY_FILE, "w", encoding="utf-8") as f:
-        json.dump(companies, f, indent=2)
+# Load existing submissions into memory
+with open(DATA_FILE, "r", encoding="utf-8") as f:
+    TEMP_USER_COMPANIES = json.load(f)
 
+# -------------------------------
+# Helper functions
+# -------------------------------
+
+def send_email_copy(company_name, email, company_type, description, website=None):
+    # Implement your existing email function here
+    print(f"📧 Sending submission email for {company_name} to support@smartquotr.com")
+    # You could also include `website` in the email
+    return True
+
+import tempfile, shutil
+
+def save_submission_atomic(company):
+    TEMP_USER_COMPANIES.append(company)
+    tmp_file = tempfile.NamedTemporaryFile(delete=False)
+    with open(tmp_file.name, "w", encoding="utf-8") as f:
+        json.dump(TEMP_USER_COMPANIES, f, indent=2)
+    shutil.move(tmp_file.name, DATA_FILE)
+
+# -------------------------------
+# Submit a business
+# -------------------------------
 @router.post("/company-submission")
 async def company_submission(
+    token: str = Body(...),
     company_name: str = Body(...),
     contact_email: str = Body(...),
     company_type: str = Body(...),
     description: str = Body(...),
-    website: str = Body(None)  # new optional field
+    website: str = Body(None)
 ):
-    companies = load_companies()
+    if token != SECRET_TOKEN:
+        return JSONResponse({"error": "❌ Invalid token"}, status_code=401)
 
-    # Deduplication: avoid duplicates by name+email
+    # Deduplication
     already_exists = any(
-        c["company_name"].lower() == company_name.lower() and 
+        c["company_name"].lower() == company_name.lower() and
         c["contact_email"].lower() == contact_email.lower()
-        for c in companies
+        for c in TEMP_USER_COMPANIES
     )
 
-    if not already_exists:
-        companies.append({
-            "company_name": company_name,
-            "contact_email": contact_email,
-            "company_type": company_type,
-            "description": description,
-            "website": website,
-            "timestamp": int(time.time())  # store as UNIX timestamp
-        })
-        save_companies(companies)
-        print(f"✅ Added new company: {company_name}")
-    else:
-        print(f"⚠️ Duplicate skipped: {company_name} ({contact_email})")
+    if already_exists:
+        return {"success": False, "message": "Duplicate submission skipped."}
 
-    send_email_copy(company_name, contact_email, company_type, description)
-
-    return {
-        "success": True,
-        "message": "Submission received, stored, and emailed to support@SmartQuotr.com"
+    submission = {
+        "company_name": company_name,
+        "contact_email": contact_email,
+        "company_type": company_type,
+        "description": description,
+        "website": website,
+        "timestamp": int(time.time())
     }
+
+    # Save to persistent JSON
+    save_submission(submission)
+
+    # Send email
+    send_email_copy(company_name, contact_email, company_type, description, website)
+
+    return {"success": True, "message": "Submission received and persisted."}
+
+# -------------------------------
+# Get directory (local + submissions)
+# -------------------------------
+from collections import defaultdict
+from .data.local_businesses import LOCAL_BUSINESSES
+ALLOWED_CATEGORIES = ["Auto Repair", "Construction", "Landscaping", "Painting", "Electrical", "Plumbing", "Other"]
 
 @router.get("/directory")
 async def get_directory():
-    companies = load_companies()
-    # Sort newest first
-    companies_sorted = sorted(companies, key=lambda c: c.get("timestamp", 0), reverse=True)
-    return {"companies": companies_sorted}
+    all_companies = LOCAL_BUSINESSES + TEMP_USER_COMPANIES
+
+    grouped = defaultdict(list)
+    for c in all_companies:
+        cat = c.get("company_type", "General")
+        if cat not in ALLOWED_CATEGORIES:
+            cat = "General"
+        grouped[cat].append(c)
+
+    for cat in grouped:
+        grouped[cat] = sorted(grouped[cat], key=lambda c: c.get("timestamp", 0), reverse=True)
+
+    return {"companies_by_category": grouped}
+
+
 
 
 # took out methods GET and HEAD
