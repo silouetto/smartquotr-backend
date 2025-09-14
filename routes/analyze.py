@@ -10,6 +10,8 @@ import time
 import copy
 import psutil
 import tempfile
+import json        # ← make sure this is at the top
+import shutil
 
 from services.vision import caption_image, detect_part
 from services.parts import get_estimate
