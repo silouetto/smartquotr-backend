@@ -413,23 +413,6 @@ async def get_pdf(pdf_id: str):
         return FileResponse(path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
 
-#added new directory and signup page
-
-# -------------------------------
-# Config
-# -------------------------------
-DATA_FILE = "submissions.json"
-SECRET_TOKEN = "my-super-secret-token"
-TEMP_USER_COMPANIES = []
-
-# Ensure file exists
-if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump([], f)
-
-# Load existing submissions into memory
-with open(DATA_FILE, "r", encoding="utf-8") as f:
-    TEMP_USER_COMPANIES = json.load(f)
 
 # -------------------------------
 # Helper functions
@@ -440,82 +423,6 @@ def send_email_copy(company_name, email, company_type, description, website=None
     print(f"📧 Sending submission email for {company_name} to support@smartquotr.com")
     # You could also include `website` in the email
     return True
-
-import tempfile, shutil
-
-def save_submission_atomic(company):
-    TEMP_USER_COMPANIES.append(company)
-    tmp_file = tempfile.NamedTemporaryFile(delete=False)
-    with open(tmp_file.name, "w", encoding="utf-8") as f:
-        json.dump(TEMP_USER_COMPANIES, f, indent=2)
-    shutil.move(tmp_file.name, DATA_FILE)
-
-# -------------------------------
-# Submit a business
-# -------------------------------
-@router.api_route("/company-submission", methods=["POST", "OPTIONS"])
-async def company_submission(
-    request: Request,
-    token: str = Body(None),
-    company_name: str = Body(None),
-    contact_email: str = Body(None),
-    company_type: str = Body(None),
-    description: str = Body(None),
-    website: str = Body(None)
-):
-    # ✅ Handle preflight OPTIONS
-    if request.method == "OPTIONS":
-        return JSONResponse({"message": "Preflight OK"}, status_code=200)
-
-    # ✅ Validate token
-    if token != SECRET_TOKEN:
-        return JSONResponse({"error": "❌ Invalid token"}, status_code=401)
-
-    # ✅ Deduplication
-    already_exists = any(
-        c["company_name"].lower() == company_name.lower() and
-        c["contact_email"].lower() == contact_email.lower()
-        for c in TEMP_USER_COMPANIES
-    )
-    if already_exists:
-        return {"success": False, "message": "Duplicate submission skipped."}
-
-    # ✅ Save submission
-    submission = {
-        "company_name": company_name,
-        "contact_email": contact_email,
-        "company_type": company_type,
-        "description": description,
-        "website": website,
-        "timestamp": int(time.time())
-    }
-    save_submission_atomic(submission)
-
-    return {"success": True, "message": "Submission received and persisted."}
-
-# -------------------------------
-# Get directory (local + submissions)
-# -------------------------------
-from collections import defaultdict
-from .data.local_businesses import LOCAL_BUSINESSES
-ALLOWED_CATEGORIES = ["Auto Repair", "Construction", "Landscaping", "Painting", "Electrical", "Plumbing", "Other"]
-
-@router.get("/directory")
-async def get_directory():
-    all_companies = LOCAL_BUSINESSES + TEMP_USER_COMPANIES
-
-    grouped = defaultdict(list)
-    for c in all_companies:
-        cat = c.get("company_type", "General")
-        if cat not in ALLOWED_CATEGORIES:
-            cat = "General"
-        grouped[cat].append(c)
-
-    for cat in grouped:
-        grouped[cat] = sorted(grouped[cat], key=lambda c: c.get("timestamp", 0), reverse=True)
-
-    return {"companies_by_category": grouped}
-
 
 
 
