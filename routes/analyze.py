@@ -411,6 +411,69 @@ async def get_pdf(pdf_id: str):
         return FileResponse(path, media_type="application/pdf", filename="SmartQuotr_Estimate.pdf")
     return {"error": "PDF not found"}
 
+#added new directory and signup page
+import json
+
+DATA_DIR = os.path.join(os.getcwd(), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+COMPANY_FILE = os.path.join(DATA_DIR, "companies.json")
+
+def load_companies():
+    if not os.path.exists(COMPANY_FILE):
+        return []
+    try:
+        with open(COMPANY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        print("⚠️ Corrupted companies.json, resetting.")
+        return []
+
+def save_companies(companies):
+    with open(COMPANY_FILE, "w", encoding="utf-8") as f:
+        json.dump(companies, f, indent=2)
+
+@router.post("/company-submission")
+async def company_submission(
+    company_name: str = Body(...),
+    contact_email: str = Body(...),
+    company_type: str = Body(...),
+    description: str = Body(...)
+):
+    companies = load_companies()
+
+    # Deduplication: avoid duplicates by name+email
+    already_exists = any(
+        c["company_name"].lower() == company_name.lower() and 
+        c["contact_email"].lower() == contact_email.lower()
+        for c in companies
+    )
+
+    if not already_exists:
+        companies.append({
+            "company_name": company_name,
+            "contact_email": contact_email,
+            "company_type": company_type,
+            "description": description,
+            "timestamp": int(time.time())  # store as UNIX timestamp
+        })
+        save_companies(companies)
+        print(f"✅ Added new company: {company_name}")
+    else:
+        print(f"⚠️ Duplicate skipped: {company_name} ({contact_email})")
+
+    send_email_copy(company_name, contact_email, company_type, description)
+
+    return {
+        "success": True,
+        "message": "Submission received, stored, and emailed to support@SmartQuotr.com"
+    }
+
+@router.get("/directory")
+async def get_directory():
+    companies = load_companies()
+    # Sort newest first
+    companies_sorted = sorted(companies, key=lambda c: c.get("timestamp", 0), reverse=True)
+    return {"companies": companies_sorted}
 
 
 # took out methods GET and HEAD
