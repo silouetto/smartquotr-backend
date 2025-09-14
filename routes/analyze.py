@@ -438,6 +438,7 @@ async def company_submission(
     contact_email: str = Body(...),
     company_type: str = Body(...),
     description: str = Body(...)
+    website: str = Body(None)  # new optional field
 ):
     companies = load_companies()
 
@@ -454,6 +455,7 @@ async def company_submission(
             "contact_email": contact_email,
             "company_type": company_type,
             "description": description,
+            "website": website,
             "timestamp": int(time.time())  # store as UNIX timestamp
         })
         save_companies(companies)
