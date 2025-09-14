@@ -67,61 +67,84 @@ async def analyze_test(file: UploadFile = File(...)):
 # ✅ Main analyze route
 @router.post("/analyze")
 async def analyze_image(
-    file: UploadFile = File(...),              # required
-    intent: str = Form(...),                   # required
-    description: str = Form(default=""),      # optional
-    project_type: str = Form(...),            # required
+    file: UploadFile = File(...),
+    intent: str = Form(...),
+    description: str = Form(default=""),
+    project_type: str = Form(...),
     steps: str = Form(default="off"),
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-    print("📩 /analyze HIT")
-    print("File:", file.filename)
-    print("Intent:", intent)
-    print("Description:", description)
-    print("Project Type:", project_type)
-    
+    import io
+    from PIL import Image
+    start = time.time()
+
+    print("\n" + "="*40)
+    print("📩 /analyze HIT (Incoming Request)")
+    print(f"📝 intent: {intent}")
+    print(f"📝 description: {description}")
+    print(f"📝 project_type: {project_type}")
+    print(f"📝 steps flag: {steps}, sketch: {include_sketch}, coupons: {include_coupons}")
+
     if not file:
+        print("❌ No file received at all!")
         return JSONResponse({"error": "❌ No file received."}, status_code=400)
 
     try:
         contents = await file.read()
-        from PIL import Image
-        import io
+        print(f"📦 File received: {file.filename} ({len(contents)/1024:.1f} KB)")
+
         img_bytes = io.BytesIO(contents)
-        image = Image.open(io.BytesIO(contents))
-        image.load()  # ensure PIL fully loads it
+        image = Image.open(img_bytes)
+        image.load()
+        print("✅ Image decoded successfully")
+
+        # Reset for downstream use
         file.file.seek(0)
+
     except Exception as e:
-        print("❌ Image decode failed:", str(e))
-        return JSONResponse({
-            "error": "Server error: ❌ Failed to read image. It may be corrupted or unsupported format."
-        }, status_code=500)
-    
-    # Rewind bytes and open again (verify() closes it)
-    img_bytes.seek(0)
-    image = Image.open(img_bytes)
+        print("❌ Image decode failed!")
+        traceback.print_exc()
+        return JSONResponse(
+            {"error": f"❌ Failed to decode image: {str(e)}"},
+            status_code=500
+        )
 
-    # ✅ Resize to reduce memory usage
-    image.thumbnail((1024, 1024))  # Resize in-place, keeps aspect ratio
+    # Resize for memory safety
+    image.thumbnail((1024, 1024))
+    print("🖼️ Image resized for processing")
 
-    # Optional: if you pass image onward (e.g. to `caption_image`)
-    # convert to file-like again if needed
-    image_io = io.BytesIO()
-    image.save(image_io, format='JPEG')
-    image_io.seek(0)
-    
     try:
         print("📸 Starting captioning...")
         image_path, caption = await caption_image(file)
-        print("📸 Captioning complete:", caption)
+        print("✅ Caption:", caption)
+    except Exception:
+        traceback.print_exc()
+        caption = "❌ Captioning failed"
+        image_path = None
 
+    try:
         print("🤖 Starting part detection...")
-        ai_part_info = detect_part(image_path)
-        print("🤖 Part detected:", ai_part_info)
-        print("⏱️ Detect part took", time.time() - start, "seconds")
+        ai_part_info = detect_part(image_path) if image_path else {"name": "Unknown Component"}
+        print("✅ Part detection result:", ai_part_info)
+    except Exception:
+        traceback.print_exc()
+        ai_part_info = {"name": "Unknown Component"}
 
+    try:
         ai_price_estimate = get_estimate(ai_part_info["name"])
+    except Exception:
+        traceback.print_exc()
+        ai_price_estimate = None
+
+    # Now proceed with GPT, scraping, etc. (unchanged from your existing code)
+    # -- keep your advice generation and structured parsing here --
+
+    print("⏱️ Analyze total time:", round(time.time() - start, 2), "seconds")
+    print("✅ Completed /analyze successfully\n" + "="*40)
+
+    # return final payload as you already do
+
         
         ai_tutorials = []
         try:
@@ -258,6 +281,7 @@ async def analyze_image(
             # "oreilly_links",
             # "napa_links"
             # "carparts_links",
+            "tonkinautoparts_links",
         ]
 
         store_matches = {key: [] for key in store_keys}
@@ -315,7 +339,8 @@ async def analyze_image(
 
         structured["Helpful Product Links"] = helpful_links_final
 
-
+    print("⏱️ Analyze total time:", round(time.time() - start, 2), "seconds")
+    print("✅ Completed /analyze successfully\n" + "="*40)
 
 
         # 🧱 Build HTML + PDF
@@ -350,6 +375,7 @@ async def analyze_image(
             # "oreilly_links": "oreillyLinks",
             # "napa_links": "napaLinks",
             # "carparts_links": "carpartsLinks",
+            "tonkinautoparts_links": "tonkinautopartsLinks",
 
         }
 
