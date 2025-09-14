@@ -28,45 +28,64 @@ from services.scraping import (
     scrape_autozone_links,
     wrap_named_links
 )
+from PIL import Image
+import asyncio
+
 router = APIRouter()
 
-# Updated ✅ DIAGNOSTIC ROUTE: isolate crash issues
-@router.post("/analyze-test")
-async def analyze_test(file: UploadFile = File(...)):
-    import traceback
+vague_words = {
+    "tools", "materials", "equipment", "stuff", "things", "total", "estimated",
+    "time", "cost", "optional", "titles", "youtube", "labor", "days", "hours"
+}
 
-    try:
-        print(f"📂 Starting analyze-test for: {file.filename}")
-        contents = await file.read()
-        print(f"📏 File size: {len(contents) / 1024:.2f} KB")
+noise_words = ["total", "estimated", "hour", "day", "cost", "range", "time", "paint", "soil mix", "stain"]
 
-        # Try PIL just to confirm decode
-        from PIL import Image
-        import io
-        image = Image.open(io.BytesIO(contents))
-        image.verify()
-        print("✅ Image verified successfully")
+def normalize_kw(kw: str) -> str:
+    return re.sub(r'[^a-z0-9]', '', kw.lower())
 
-        mem_used = psutil.Process().memory_info().rss / 1024**2
-        return {
-            "filename": file.filename,
-            "file_size_kb": round(len(contents) / 1024, 2),
-            "memory_used_mb": round(mem_used, 2),
-            "status": "✅ Upload and decode successful"
-        }
+def looks_like_product_kw(kw: str) -> bool:
+    if not kw: return False
+    kw_clean = normalize_kw(kw)
+    if len(kw_clean) < 4 or kw_clean in vague_words:
+        return False
+    if any(char.isdigit() for char in kw[:3]): return False
+    if "$" in kw or " per " in kw.lower(): return False
+    if re.search(r"\$\d+", kw): return False
+    if " for " in kw.lower() and "$" in kw: return False
+    if any(n in kw.lower() for n in noise_words): return False
+    return True
 
-    except Exception as e:
-        print("❌ Exception during /analyze-test:")
-        traceback.print_exc()
+def extract_keywords(structured: dict) -> set:
+    keywords = set()
+    for section, lines in structured.items():
+        if "tools" in section.lower() or "materials" in section.lower():
+            for line in lines:
+                kw = re.sub(r'^\[\s*\]\s*[-•*]?\s*', '', line).strip()
+                kw = re.sub(r'\s*\(.*?\)', '', kw).strip(" -:")
+                kw_cleaned = kw.title()
+                if looks_like_product_kw(kw_cleaned):
+                    keywords.add(kw_cleaned)
+    return keywords
 
-        return JSONResponse(
-            {"error": f"❌ Failed to handle upload: {str(e)}"},
-            status_code=500
-        )    
+def merge_unique_links(keywords: set, links: dict, store_matches: dict, store_keys: list):
+    seen = set()
+    for kw in keywords:
+        kw_text = normalize_kw(kw)
+        for store_key in store_keys:
+            for link in links.get(store_key, []):
+                if not isinstance(link, dict): continue
+                label = normalize_kw(link.get("name", ""))
+                url = link.get("url")
+                if not url or not label or (kw_text, label, url) in seen: continue
+                if kw_text in label or label in kw_text or difflib.SequenceMatcher(None, kw_text, label).ratio() > 0.5:
+                    store_matches[store_key].append({"name": kw, "url": url})
+                    seen.add((kw_text, label, url))
+                    break
+    return store_matches
 
-# ✅ Main analyze route
 @router.post("/analyze")
 async def analyze_image(
+    request: Request,
     file: UploadFile = File(...),
     intent: str = Form(...),
     description: str = Form(default=""),
@@ -75,347 +94,105 @@ async def analyze_image(
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-    import io
-    from PIL import Image
     start = time.time()
-
-    print("\n" + "="*40)
-    print("📩 /analyze HIT (Incoming Request)")
-    print(f"📝 intent: {intent}")
-    print(f"📝 description: {description}")
-    print(f"📝 project_type: {project_type}")
-    print(f"📝 steps flag: {steps}, sketch: {include_sketch}, coupons: {include_coupons}")
-
-    if not file:
-        print("❌ No file received at all!")
-        return JSONResponse({"error": "❌ No file received."}, status_code=400)
-
     try:
+        print("\n" + "="*40)
+        print("📩 /analyze HIT")
+        if not file:
+            return JSONResponse({"error": "❌ No file received."}, status_code=400)
+
+        # -------------------------------
+        # 📸 Image processing
+        # -------------------------------
         contents = await file.read()
-        print(f"📦 File received: {file.filename} ({len(contents)/1024:.1f} KB)")
-
-        img_bytes = io.BytesIO(contents)
-        image = Image.open(img_bytes)
+        image = Image.open(io.BytesIO(contents))
         image.load()
-        print("✅ Image decoded successfully")
-
-        # Reset for downstream use
+        image.thumbnail((1024, 1024))
         file.file.seek(0)
+        print(f"✅ Image loaded ({file.filename})")
 
-    except Exception as e:
-        print("❌ Image decode failed!")
-        traceback.print_exc()
-        return JSONResponse(
-            {"error": f"❌ Failed to decode image: {str(e)}"},
-            status_code=500
+        # -------------------------------
+        # 🔗 Async tasks: caption, part detection, price, YouTube
+        # -------------------------------
+        async def caption_task(): 
+            try: return await caption_image(file)
+            except Exception as e: 
+                print("❌ Caption failed:", e)
+                return None, "❌ Caption failed"
+
+        async def part_task(img_path): 
+            try: return detect_part(img_path) if img_path else {"name": "Unknown Component"}
+            except: traceback.print_exc(); return {"name": "Unknown Component"}
+
+        async def price_task(part_info): 
+            try: return get_estimate(part_info.get("name", "Unknown Component"))
+            except: traceback.print_exc(); return None
+
+        async def youtube_task(part_info): 
+            try:
+                if part_info.get("name") != "Unknown Component":
+                    return get_youtube_tutorials(part_info["name"])
+                return []
+            except: traceback.print_exc(); return []
+
+        image_path, caption = await caption_task()
+        ai_part_info, ai_price_estimate, ai_tutorials = await asyncio.gather(
+            part_task(image_path),
+            price_task(ai_part_info := {"name": "Unknown Component"}),  # dummy initially
+            youtube_task(ai_part_info)
         )
 
-    # Resize for memory safety
-    image.thumbnail((1024, 1024))
-    print("🖼️ Image resized for processing")
-
-    # 🔧 Initialize variables early to avoid scope issues
-    ai_tutorials = []
-    ai_part_info = {"name": "Unknown Component"}
-    ai_price_estimate = None
-
-    try:
-        print("📸 Starting captioning...")
-        image_path, caption = await caption_image(file)
-        print("✅ Caption:", caption)
-    except Exception:
-        traceback.print_exc()
-        caption = "❌ Captioning failed"
-        image_path = None
-
-    try:
-        print("🤖 Starting part detection...")
-        ai_part_info = detect_part(image_path) if image_path else {"name": "Unknown Component"}
-        print("✅ Part detection result:", ai_part_info)
-    except Exception:
-        traceback.print_exc()
-
-    try:
-        ai_price_estimate = get_estimate(ai_part_info["name"])
-    except Exception:
-        traceback.print_exc()
-
-    try:
-        if ai_part_info.get("name") and ai_part_info["name"] != "Unknown Component":
-            ai_tutorials = get_youtube_tutorials(ai_part_info["name"])
-    except Exception as e:
-        print("⚠️ YouTube fetch failed:", str(e))
-
-    gpt4 = is_gpt4_unlocked(request)
-
-    # Only include flags if using GPT-4
-    sketch_flag = False
-    coupon_flag = False
-
-    # 🧠 Advice from GPT
-    advice = generate_advice(
-        intent, description, project_type,
-        caption,
-        include_steps=False,
-        include_sketch=sketch_flag,
-        include_coupons=coupon_flag,
-        use_gpt4=gpt4
-    )
-
-    print("🧠 GPT advice:\n", advice)
-    if not advice or not isinstance(advice, str):
-        raise Exception("❌ No advice returned from GPT")
-
-    structured = format_advice_structured(advice)
-    if not structured:
-        raise Exception("❌ Failed to parse structured advice from GPT")
-
-    # return final payload as you already do
-
-        
-        ai_tutorials = []
-        try:
-            if ai_part_info.get("name") and ai_part_info["name"] != "Unknown Component":
-                ai_tutorials = get_youtube_tutorials(ai_part_info["name"])
-        except Exception as e:
-            print("⚠️ YouTube fetch failed:", str(e))
-        
-
+        # -------------------------------
+        # 🧠 GPT advice
+        # -------------------------------
         gpt4 = is_gpt4_unlocked(request)
-
-        # Only include flags if using GPT-4
-        sketch_flag = False # took out include_sketch and coupons
+        sketch_flag = False
         coupon_flag = False
-        
-        # Get advice from GPT
-        # ----------------------------- Analyze Core (Inside /analyze) -----------------------------
-        # 🧠 Advice from GPT
-        advice = generate_advice(intent, description, project_type, caption, include_steps=False, include_sketch=sketch_flag, include_coupons=coupon_flag, use_gpt4=gpt4)
-        print("🧠 GPT advice:\n", advice)
-
-        if not advice or not isinstance(advice, str):
-            raise Exception("❌ No advice returned from GPT")
-
-        # 🧱 Structure advice
+        advice = generate_advice(
+            intent, description, project_type, caption,
+            include_steps=False, include_sketch=sketch_flag,
+            include_coupons=coupon_flag, use_gpt4=gpt4
+        )
         structured = format_advice_structured(advice)
-        
-        # ✅ Extract coupon section if enabled
-        if coupon_flag:
-            coupon_lines = []
-            for section, lines in structured.items():
-                if "coupon" in section.lower() or "promo" in section.lower():
-                    coupon_lines.extend(line.strip("-• ") for line in lines if line.strip())
-    
-            if coupon_lines:
-                # Rename the section to something user-friendly and deduplicated
-                structured["Exclusive Coupons"] = list(dict.fromkeys(coupon_lines))
-
-
-        structured = copy.deepcopy(structured)
-
         if not structured:
-            raise Exception("❌ Failed to parse structured advice from GPT")
+            raise Exception("❌ Failed to parse GPT advice")
 
-                # 🧹 Define vague or non-product-like words to exclude
-        vague_words = {
-            "tools", "materials", "equipment", "stuff", "things", "total", "estimated",
-            "time", "cost", "optional", "titles", "youtube", "labor", "days", "hours"
-        }
-
-        def normalize_kw(kw):
-            return re.sub(r'[^a-z0-9]', '', kw.lower())
-
-        def looks_like_product_kw(kw):
-            if not kw:
-                return False
-            kw_clean = normalize_kw(kw)
-            if len(kw_clean) < 4:
-                return False
-            if kw_clean in vague_words:
-                return False
-            if any(char.isdigit() for char in kw[:3]):
-                return False
-            if "$" in kw or " per " in kw.lower():
-                return False
-            if re.search(r"\$\d+", kw):
-                return False
-            if " for " in kw.lower() and "$" in kw:
-                return False
-            noise = ["total", "estimated", "hour", "day", "cost", "range", "time", "paint", "soil mix", "stain"]
-            if any(n in kw.lower() for n in noise):
-                return False
-            return True
-
-        # ✅ Extract structured keywords from only tools/materials
-        structured_keywords = set()
-
-        for section, lines in structured.items():
-            if "tools" in section.lower() or "materials" in section.lower():
-                for line in lines:
-                    # 🧹 Remove checkbox/bullet/parentheses
-                    kw = re.sub(r'^\[\s*\]\s*[-•*]?\s*', '', line).strip()
-                    kw = re.sub(r'\s*\(.*?\)', '', kw)
-                    kw = kw.strip(" -:")  # Trim edge punctuation
-
-                    # 🧼 Normalize and check
-                    kw_cleaned = kw.title()
-                    if looks_like_product_kw(kw_cleaned):
-                        structured_keywords.add(kw_cleaned)
-                    else:
-                        print("🚫 Filtered non-product:", kw)
-
-
-        # 🔁 Merge advice with extracted tool/materials to create better scraping context
+        # -------------------------------
+        # 🛠️ Keywords & Product Links
+        # -------------------------------
+        structured_keywords = extract_keywords(structured)
         search_blob = advice + "\n" + "\n".join(structured_keywords)
+        links = scrape_all_links(search_blob, project_type, structured_keywords)
+        store_keys = ["amazon_links", "walmart_links", "harborfreight_links", "autozone_links", "tonkinautoparts_links"]
+        store_matches = {k: [] for k in store_keys}
+        store_matches = merge_unique_links(structured_keywords, links, store_matches, store_keys)
 
+        # Final "Helpful Product Links"
+        structured["Helpful Product Links"] = [f"🔗 {kw.title()}" for kw in sorted(structured_keywords)]
 
-        # ✅ Ensure "Helpful Product Links" section exists
-        if "Helpful Product Links" not in structured:
-            structured["Helpful Product Links"] = []
-
-        clean_keywords = set()
-        for raw in structured_keywords:
-            cleaned = re.sub(r'^\[\s*\]\s*', '', raw).strip()
-            cleaned = re.sub(r'\s*\(.*?\)', '', cleaned).strip(" -:")
-            clean_keywords.add(cleaned.title())
-
-
-
-        # 🔗 Scrape product links using full search blob
-        links = scrape_all_links(search_blob, project_type, clean_keywords)
-        
-        # ✅ Inject clean keywords directly into the structured section
-        structured["Helpful Product Links"] = [f"🔗 {kw}" for kw in sorted(set(clean_keywords))]
-
-        print("🧾 Cleaned keywords for product search:", clean_keywords)
-
-        # ✅ Fuzzy match helpers
-        def is_fuzzy_match(a: str, b: str) -> bool:
-            return (
-                a in b or
-                b in a or
-                difflib.SequenceMatcher(None, a, b).ratio() > 0.5
-            )
-        # COMMENTED OUT EXTRA STORE LINKS
-        store_keys = [
-            "amazon_links",
-            "walmart_links",
-            "harborfreight_links",
-            "autozone_links",
-            # "homedepot_links",
-            # "temu_links",
-            # "bestbuy_links",
-            # "oreilly_links",
-            # "napa_links"
-            # "carparts_links",
-            "tonkinautoparts_links",
-        ]
-
-        store_matches = {key: [] for key in store_keys}
-        seen = set()  # For deduplication
-
-        try:
-            for kw in structured_keywords:
-                kw_text = normalize_kw(kw)
-
-                for store_key in store_keys:
-                    for link in links.get(store_key, []):
-                        if not isinstance(link, dict):
-                            continue
-
-                        label = normalize_kw(link.get("name", ""))
-                        url = link.get("url")
-
-                        if not url or not label:
-                            continue
-
-                        if (kw_text, label, url) in seen:
-                            continue
-
-                        if is_fuzzy_match(kw_text, label):
-                            store_matches[store_key].append({
-                                "name": kw,
-                                "url": url
-                            })
-                            seen.add((kw_text, label, url))
-                            break
-        except Exception as match_err:
-            print("🚨 Matching failed:", match_err)
-
-        # ✅ Append unique matches to each store tab
-        for store_key in store_keys:
-            existing_urls = set(normalize_kw(link.get("url", "")) for link in links[store_key])
-            for match in store_matches[store_key]:
-                if normalize_kw(match["url"]) not in existing_urls:
-                    links[store_key].append(match)
-                    existing_urls.add(normalize_kw(match["url"]))
-
-
-       
-        if not structured.get("Tools Needed") and not structured.get("Materials"):
-            return JSONResponse(content={"error": "Could not extract valid tools or materials."}, status_code=400)
-
-        # Build final list once, safely
-        helpful_links_final = []
-        seen_links = set()
-        for kw in sorted(set(clean_keywords)):
-            kw_clean = re.sub(r'\s*\(.*?\)', '', kw).strip(" -:")
-            if kw_clean.lower() not in seen_links:
-                helpful_links_final.append(f"🔗 {kw_clean.title()}")
-                seen_links.add(kw_clean.lower())
-
-        structured["Helpful Product Links"] = helpful_links_final
-
-        print("⏱️ Analyze total time:", round(time.time() - start, 2), "seconds")
-        print("✅ Completed /analyze successfully\n" + "="*40)
-
-
-        # 🧱 Build HTML + PDF
-        # ✅ Generate UUID-based filename
+        # -------------------------------
+        # 🧾 PDF + HTML
+        # -------------------------------
         pdf_id = f"{uuid.uuid4().hex}.pdf"
-
-        # ✅ Use persistent local directory for storage
         output_dir = os.path.join(os.getcwd(), "generated_pdfs")
         os.makedirs(output_dir, exist_ok=True)
-
-        # ✅ Full path for PDF file
         pdf_path = os.path.join(output_dir, pdf_id)
-
-        # ✅ Create the actual PDF file
         create_pdf(pdf_path, caption, intent, description, project_type, structured)
-        print("✅ PDF created at:", pdf_path)
-        print("🗂️ Exists?", os.path.exists(pdf_path))
-
-        # ✅ Generate HTML version
         html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
 
-
-        # ✅ Map keys to match frontend camelCase IDs   COMMENTED OUT EXTRA LINKS
+        # -------------------------------
+        # 🔗 Camel-case store links
+        # -------------------------------
         snake_to_camel = {
             "amazon_links": "amazonLinks",
-            # "homedepot_links": "homedepotLinks",
             "walmart_links": "walmartLinks",
-            # "temu_links": "temuLinks",
-            # "bestbuy_links": "bestbuyLinks",
             "harborfreight_links": "harborfreightLinks",
             "autozone_links": "autozoneLinks",
-            # "oreilly_links": "oreillyLinks",
-            # "napa_links": "napaLinks",
-            # "carparts_links": "carpartsLinks",
             "tonkinautoparts_links": "tonkinautopartsLinks",
-
         }
+        camel_case_links = {snake_to_camel[k]: links.get(k, []) + store_matches.get(k, []) for k in store_keys if k in snake_to_camel}
 
-        camel_case_links = {
-            snake_to_camel[k]: links.get(k, []) + store_matches.get(k, [])
-            for k in store_keys if k in snake_to_camel
-        }
-
-        print("⏱️ Analyze total time:", time.time() - start, "seconds")
-
-        print("✅ Completed /analyze successfully")
-
-        # ✅ Return payload
+        print("⏱️ /analyze total time:", round(time.time()-start,2),"s")
         return {
             "caption": caption,
             "category": project_type,
@@ -431,247 +208,9 @@ async def analyze_image(
             "coupons": [item for sec, items in structured.items() if "coupon" in sec.lower() for item in items]
         }
 
-        
     except Exception as e:
-        traceback.print_exc()  # 🔍 shows full crash stack trace in terminal
-        return JSONResponse(content={"error": f"Server error: {str(e)}"}, status_code=500)
-        
-        # ✅ Extract coupon section if enabled
-        if coupon_flag:
-            coupon_lines = []
-            for section, lines in structured.items():
-                if "coupon" in section.lower() or "promo" in section.lower():
-                    coupon_lines.extend(line.strip("-• ") for line in lines if line.strip())
-    
-            if coupon_lines:
-                # Rename the section to something user-friendly and deduplicated
-                structured["Exclusive Coupons"] = list(dict.fromkeys(coupon_lines))
-
-
-        structured = copy.deepcopy(structured)
-
-        if not structured:
-            raise Exception("❌ Failed to parse structured advice from GPT")
-
-                # 🧹 Define vague or non-product-like words to exclude
-        vague_words = {
-            "tools", "materials", "equipment", "stuff", "things", "total", "estimated",
-            "time", "cost", "optional", "titles", "youtube", "labor", "days", "hours"
-        }
-
-        def normalize_kw(kw):
-            return re.sub(r'[^a-z0-9]', '', kw.lower())
-
-        def looks_like_product_kw(kw):
-            if not kw:
-                return False
-            kw_clean = normalize_kw(kw)
-            if len(kw_clean) < 4:
-                return False
-            if kw_clean in vague_words:
-                return False
-            if any(char.isdigit() for char in kw[:3]):
-                return False
-            if "$" in kw or " per " in kw.lower():
-                return False
-            if re.search(r"\$\d+", kw):
-                return False
-            if " for " in kw.lower() and "$" in kw:
-                return False
-            noise = ["total", "estimated", "hour", "day", "cost", "range", "time", "paint", "soil mix", "stain"]
-            if any(n in kw.lower() for n in noise):
-                return False
-            return True
-
-        # ✅ Extract structured keywords from only tools/materials
-        structured_keywords = set()
-
-        for section, lines in structured.items():
-            if "tools" in section.lower() or "materials" in section.lower():
-                for line in lines:
-                    # 🧹 Remove checkbox/bullet/parentheses
-                    kw = re.sub(r'^\[\s*\]\s*[-•*]?\s*', '', line).strip()
-                    kw = re.sub(r'\s*\(.*?\)', '', kw)
-                    kw = kw.strip(" -:")  # Trim edge punctuation
-
-                    # 🧼 Normalize and check
-                    kw_cleaned = kw.title()
-                    if looks_like_product_kw(kw_cleaned):
-                        structured_keywords.add(kw_cleaned)
-                    else:
-                        print("🚫 Filtered non-product:", kw)
-
-
-        # 🔁 Merge advice with extracted tool/materials to create better scraping context
-        search_blob = advice + "\n" + "\n".join(structured_keywords)
-
-
-        # ✅ Ensure "Helpful Product Links" section exists
-        if "Helpful Product Links" not in structured:
-            structured["Helpful Product Links"] = []
-
-        clean_keywords = set()
-        for raw in structured_keywords:
-            cleaned = re.sub(r'^\[\s*\]\s*', '', raw).strip()
-            cleaned = re.sub(r'\s*\(.*?\)', '', cleaned).strip(" -:")
-            clean_keywords.add(cleaned.title())
-
-
-
-        # 🔗 Scrape product links using full search blob
-        links = scrape_all_links(search_blob, project_type, clean_keywords)
-        
-        # ✅ Inject clean keywords directly into the structured section
-        structured["Helpful Product Links"] = [f"🔗 {kw}" for kw in sorted(set(clean_keywords))]
-
-        print("🧾 Cleaned keywords for product search:", clean_keywords)
-
-        # ✅ Fuzzy match helpers
-        def is_fuzzy_match(a: str, b: str) -> bool:
-            return (
-                a in b or
-                b in a or
-                difflib.SequenceMatcher(None, a, b).ratio() > 0.5
-            )
-        # COMMENTED OUT EXTRA STORE LINKS
-        store_keys = [
-            "amazon_links",
-            "walmart_links",
-            "harborfreight_links",
-            "autozone_links",
-            # "homedepot_links",
-            # "temu_links",
-            # "bestbuy_links",
-            # "oreilly_links",
-            # "napa_links"
-            # "carparts_links",
-            "tonkinautoparts_links",
-        ]
-
-        store_matches = {key: [] for key in store_keys}
-        seen = set()  # For deduplication
-
-        try:
-            for kw in structured_keywords:
-                kw_text = normalize_kw(kw)
-
-                for store_key in store_keys:
-                    for link in links.get(store_key, []):
-                        if not isinstance(link, dict):
-                            continue
-
-                        label = normalize_kw(link.get("name", ""))
-                        url = link.get("url")
-
-                        if not url or not label:
-                            continue
-
-                        if (kw_text, label, url) in seen:
-                            continue
-
-                        if is_fuzzy_match(kw_text, label):
-                            store_matches[store_key].append({
-                                "name": kw,
-                                "url": url
-                            })
-                            seen.add((kw_text, label, url))
-                            break
-        except Exception as match_err:
-            print("🚨 Matching failed:", match_err)
-
-        # ✅ Append unique matches to each store tab
-        for store_key in store_keys:
-            existing_urls = set(normalize_kw(link.get("url", "")) for link in links[store_key])
-            for match in store_matches[store_key]:
-                if normalize_kw(match["url"]) not in existing_urls:
-                    links[store_key].append(match)
-                    existing_urls.add(normalize_kw(match["url"]))
-
-
-       
-        if not structured.get("Tools Needed") and not structured.get("Materials"):
-            return JSONResponse(content={"error": "Could not extract valid tools or materials."}, status_code=400)
-
-        # Build final list once, safely
-        helpful_links_final = []
-        seen_links = set()
-        for kw in sorted(set(clean_keywords)):
-            kw_clean = re.sub(r'\s*\(.*?\)', '', kw).strip(" -:")
-            if kw_clean.lower() not in seen_links:
-                helpful_links_final.append(f"🔗 {kw_clean.title()}")
-                seen_links.add(kw_clean.lower())
-
-        structured["Helpful Product Links"] = helpful_links_final
-
-    print("⏱️ Analyze total time:", round(time.time() - start, 2), "seconds")
-    print("✅ Completed /analyze successfully\n" + "="*40)
-
-
-        # 🧱 Build HTML + PDF
-        # ✅ Generate UUID-based filename
-        pdf_id = f"{uuid.uuid4().hex}.pdf"
-
-        # ✅ Use persistent local directory for storage
-        output_dir = os.path.join(os.getcwd(), "generated_pdfs")
-        os.makedirs(output_dir, exist_ok=True)
-
-        # ✅ Full path for PDF file
-        pdf_path = os.path.join(output_dir, pdf_id)
-
-        # ✅ Create the actual PDF file
-        create_pdf(pdf_path, caption, intent, description, project_type, structured)
-        print("✅ PDF created at:", pdf_path)
-        print("🗂️ Exists?", os.path.exists(pdf_path))
-
-        # ✅ Generate HTML version
-        html_blocks = build_html_blocks(structured, ai_tutorials=ai_tutorials)
-
-
-        # ✅ Map keys to match frontend camelCase IDs   COMMENTED OUT EXTRA LINKS
-        snake_to_camel = {
-            "amazon_links": "amazonLinks",
-            # "homedepot_links": "homedepotLinks",
-            "walmart_links": "walmartLinks",
-            # "temu_links": "temuLinks",
-            # "bestbuy_links": "bestbuyLinks",
-            "harborfreight_links": "harborfreightLinks",
-            "autozone_links": "autozoneLinks",
-            # "oreilly_links": "oreillyLinks",
-            # "napa_links": "napaLinks",
-            # "carparts_links": "carpartsLinks",
-            "tonkinautoparts_links": "tonkinautopartsLinks",
-
-        }
-
-        camel_case_links = {
-            snake_to_camel[k]: links.get(k, []) + store_matches.get(k, [])
-            for k in store_keys if k in snake_to_camel
-        }
-
-        print("⏱️ Analyze total time:", time.time() - start, "seconds")
-
-        print("✅ Completed /analyze successfully")
-
-        # ✅ Return payload
-        return {
-            "caption": caption,
-            "category": project_type,
-            "intent": intent,
-            "user_description": description,
-            "advice": html_blocks,
-            "pdf_id": pdf_id,
-            "ai_part_info": ai_part_info,
-            "ai_price_estimate": ai_price_estimate,
-            "ai_tutorials": ai_tutorials,
-            "keywords": list(structured_keywords),
-            **camel_case_links,
-            "coupons": [item for sec, items in structured.items() if "coupon" in sec.lower() for item in items]
-        }
-
-        
-    except Exception as e:
-        traceback.print_exc()  # 🔍 shows full crash stack trace in terminal
-        return JSONResponse(content={"error": f"Server error: {str(e)}"}, status_code=500)
+        traceback.print_exc()
+        return JSONResponse({"error": f"Server error: {str(e)}"}, status_code=500)
 
 
 @router.post("/steps")
