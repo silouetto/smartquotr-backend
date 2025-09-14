@@ -64,37 +64,33 @@ async def analyze_test(file: UploadFile = File(...)):
             status_code=500
         )    
 
-# added options post cos workaround
-@router.api_route("/analyze", methods=["POST", "OPTIONS"])
+# ✅ Main analyze route
+@router.post("/analyze")
 async def analyze_image(
-    request: Request,
-    file: UploadFile = File(None),
-    intent: str = Form(None),
-    description: str = Form(default=""),
-    project_type: str = Form(None),
+    file: UploadFile = File(...),              # required
+    intent: str = Form(...),                   # required
+    description: str = Form(default=""),      # optional
+    project_type: str = Form(...),            # required
     steps: str = Form(default="off"),
     include_sketch: str = Form(default="off"),
     include_coupons: str = Form(default="off")
 ):
-    if request.method == "OPTIONS":
-        return JSONResponse(content={"message": "Preflight OK"}, status_code=200)
-   
-    start = time.time()
-    print("📩 /analyze route HIT")
-
-    # ✅ Added this validation block below
+    print("📩 /analyze HIT")
+    print("File:", file.filename)
+    print("Intent:", intent)
+    print("Description:", description)
+    print("Project Type:", project_type)
+    
     if not file:
         return JSONResponse({"error": "❌ No file received."}, status_code=400)
-
-    print("📸 Uploaded file:", file.filename)
 
     try:
         contents = await file.read()
         from PIL import Image
         import io
-        img_bytes = io.BytesIO(contents) # NEW
+        img_bytes = io.BytesIO(contents)
         image = Image.open(io.BytesIO(contents))
-        image.load() #new from verify
+        image.load()  # ensure PIL fully loads it
         file.file.seek(0)
     except Exception as e:
         print("❌ Image decode failed:", str(e))
