@@ -453,28 +453,34 @@ def save_submission_atomic(company):
 # -------------------------------
 # Submit a business
 # -------------------------------
-@router.post("/company-submission")
+@router.api_route("/company-submission", methods=["POST", "OPTIONS"])
 async def company_submission(
-    token: str = Body(...),
-    company_name: str = Body(...),
-    contact_email: str = Body(...),
-    company_type: str = Body(...),
-    description: str = Body(...),
+    request: Request,
+    token: str = Body(None),
+    company_name: str = Body(None),
+    contact_email: str = Body(None),
+    company_type: str = Body(None),
+    description: str = Body(None),
     website: str = Body(None)
 ):
+    # ✅ Handle preflight OPTIONS
+    if request.method == "OPTIONS":
+        return JSONResponse({"message": "Preflight OK"}, status_code=200)
+
+    # ✅ Validate token
     if token != SECRET_TOKEN:
         return JSONResponse({"error": "❌ Invalid token"}, status_code=401)
 
-    # Deduplication
+    # ✅ Deduplication
     already_exists = any(
         c["company_name"].lower() == company_name.lower() and
         c["contact_email"].lower() == contact_email.lower()
         for c in TEMP_USER_COMPANIES
     )
-
     if already_exists:
         return {"success": False, "message": "Duplicate submission skipped."}
 
+    # ✅ Save submission
     submission = {
         "company_name": company_name,
         "contact_email": contact_email,
@@ -483,12 +489,7 @@ async def company_submission(
         "website": website,
         "timestamp": int(time.time())
     }
-
-    # Save to persistent JSON
-    save_submission(submission)
-
-    # Send email
-    send_email_copy(company_name, contact_email, company_type, description, website)
+    save_submission_atomic(submission)
 
     return {"success": True, "message": "Submission received and persisted."}
 
