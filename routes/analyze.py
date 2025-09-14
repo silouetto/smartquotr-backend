@@ -1,5 +1,5 @@
 # routes/analyze.py
-from fastapi import APIRouter, UploadFile, File, Form, Request
+from fastapi import APIRouter, UploadFile, File, Form, Request, Body
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, Response
 import uuid
 import os
