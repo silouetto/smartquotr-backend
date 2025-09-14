@@ -437,7 +437,7 @@ async def company_submission(
     company_name: str = Body(...),
     contact_email: str = Body(...),
     company_type: str = Body(...),
-    description: str = Body(...)
+    description: str = Body(...),
     website: str = Body(None)  # new optional field
 ):
     companies = load_companies()
