@@ -18,22 +18,16 @@ async def company_submission(
     contact_email: str = Body(...),
     company_type: str = Body(...),
     description: str = Body(...),
+    location: str = Body(None),   # ✅ add location support
     website: str = Body(None)
 ):
-    # Deduplicate
-    if any(
-        c["company_name"].lower() == company_name.lower() and
-        c["contact_email"].lower() == contact_email.lower()
-        for c in TEMP_USER_COMPANIES
-    ):
-        return JSONResponse({"success": False, "message": "Duplicate submission skipped."})
-
     # Build the company dict
     submission = {
         "company_name": company_name,
         "contact_email": contact_email,
         "company_type": company_type,
         "description": description,
+        "location": location,     # ✅ store location
         "website": website,
         "timestamp": int(time.time())
     }
@@ -46,15 +40,17 @@ async def company_submission(
 
     return JSONResponse({"success": True, "message": "Submission saved and emailed!"})
 
+
 # -------------------------------
 # Get directory (local + submissions)
 # -------------------------------
 @router.get("/directory")
 async def get_directory():
-    # Ensure latest TEMP_USER_COMPANIES is loaded
-    load_companies()  # optional: refresh from JSON if needed
+    # Load saved companies
+    companies = load_companies()
 
-    all_companies = LOCAL_BUSINESSES 
+    # Merge with local predefined ones
+    all_companies = LOCAL_BUSINESSES + companies
 
     grouped = defaultdict(list)
     for c in all_companies:
@@ -68,3 +64,4 @@ async def get_directory():
         grouped[cat] = sorted(grouped[cat], key=lambda c: c.get("timestamp", 0), reverse=True)
 
     return {"companies_by_category": grouped}
+
