@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # ✅ Register routes
-app.include_router(analyze_router)
+app.include_router(analyze_router, prefix="/api")
 app.include_router(helpbot_router)
 
 # ✅ CORS Debug Logging Middleware
