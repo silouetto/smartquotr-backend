@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
 
+from routes import business_signup, business_directory
 from routes.analyze import router as analyze_router
 from routes.helpbot import router as helpbot_router
 import os
@@ -28,6 +29,8 @@ app.add_middleware(
 # ✅ Register routes
 app.include_router(analyze_router)
 app.include_router(helpbot_router)
+app.include_router(business_signup.router)
+app.include_router(business_directory.router)
 
 # ✅ CORS Debug Logging Middleware
 @app.middleware("http")
