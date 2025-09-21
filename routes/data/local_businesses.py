@@ -1,15 +1,7 @@
 # routes/data/local_businesses.py
 
 LOCAL_BUSINESSES = [
-    {
-        "name": "Joe's Auto Repair",
-        "email": "joe@example.com",
-        "category": "Auto Repair",
-        "description": "Full-service auto repair shop",
-        "location": "Portland, OR",
-        "website": "https://joesautorepair.com",
-        "timestamp": 1694582400  # Example: Unix timestamp
-    },
+    
     {
         "name": "Green Thumb Landscaping",
         "email": "contact@greenthumb.com",
