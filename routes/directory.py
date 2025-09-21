@@ -7,7 +7,7 @@ import time
 
 router = APIRouter()
 
-ALLOWED_CATEGORIES = ["Auto Repair", "Construction", "Landscaping", "Painting", "Electrical", "Plumbing", "Other"]
+ALLOWED_CATEGORIES = ["Auto Repair", "Construction", "Dealership", "Landscaping", "Painting", "Electrical", "Plumbing", "Other"]
 
 # -------------------------------
 # Submit a business
