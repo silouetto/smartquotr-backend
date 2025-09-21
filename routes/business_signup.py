@@ -70,3 +70,13 @@ async def submit_company(request: Request):
     except Exception as e:
         print("❌ Error processing business submission:", e)
         raise HTTPException(status_code=500, detail="Failed to process business submission.")
+
+# ✅ NEW: Public endpoint to fetch directory
+@router.get("/api/directory")
+async def get_directory():
+    try:
+        businesses = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        return JSONResponse(content={"businesses": businesses})
+    except Exception as e:
+        print("❌ Error reading business directory:", e)
+        raise HTTPException(status_code=500, detail="Could not read business directory.")
