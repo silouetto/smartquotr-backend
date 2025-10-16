@@ -98,7 +98,7 @@ LOCAL_BUSINESSES = [
         "category": "Dealership",
         "description": "Auto Whosale and automtive service repairs by appointment only, (971)-227-7039",
         "location": "Milwaukie, OR",
-        "website": "https://brightcleanwindows.com",
+        "website": "",
         "timestamp": 1694841600
     }
 ]
