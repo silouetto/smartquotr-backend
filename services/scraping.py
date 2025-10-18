@@ -3,7 +3,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-AMAZON_TAG = "smartquotr-20"
+AMAZON_TAG = "smartquotr08-20"
 
 # 🔁 Format: list of dicts with name + url for easy tabbed rendering
 def wrap_named_links(query, links):
