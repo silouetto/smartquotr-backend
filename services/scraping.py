@@ -49,26 +49,26 @@ def scrape_amazon_links(query):
 # def scrape_homedepot_links(query):
 #    return wrap_named_links(query, [f"https://www.homedepot.com/s/{requests.utils.quote(query)}"])
 
-def scrape_tonkinautoparts_links(query):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    url = f"https://www.tonkinautoparts.com/search?q={requests.utils.quote(query)}"
-    try:
-        res = requests.get(url, headers=headers, timeout=5)
-        soup = BeautifulSoup(res.text, "html.parser")
-        links = []
+# def scrape_tonkinautoparts_links(query):
+#     headers = {"User-Agent": "Mozilla/5.0"}
+#     url = f"https://www.tonkinautoparts.com/search?q={requests.utils.quote(query)}"
+#     try:
+#         res = requests.get(url, headers=headers, timeout=5)
+#         soup = BeautifulSoup(res.text, "html.parser")
+#         links = []
         # Product links: usually under /oem-parts/ or /product/
-        for a in soup.select("a[href^='/oem-parts/'], a[href^='/product/']")[:3]:
-            href = a.get("href")
-            if href:
-                full_link = f"https://www.tonkinautoparts.com{href.split('?')[0]}"
-                product_name = a.get_text(strip=True)
-                if not product_name:
-                    product_name = a.get("title", query).strip()
-                links.append({"name": product_name or query, "url": full_link})
-        return links or wrap_named_links(query, [url])
-    except Exception as e:
-        print(f"⚠️ TonkinAutoParts scrape failed for '{query}':", e)
-        return wrap_named_links(query, [url])
+#         for a in soup.select("a[href^='/oem-parts/'], a[href^='/product/']")[:3]:
+#             href = a.get("href")
+#             if href:
+#                 full_link = f"https://www.tonkinautoparts.com{href.split('?')[0]}"
+#                 product_name = a.get_text(strip=True)
+#                 if not product_name:
+#                     product_name = a.get("title", query).strip()
+#                 links.append({"name": product_name or query, "url": full_link})
+#         return links or wrap_named_links(query, [url])
+#     except Exception as e:
+#         print(f"⚠️ TonkinAutoParts scrape failed for '{query}':", e)
+#         return wrap_named_links(query, [url])
 
 
 def scrape_walmart_links(query):
@@ -145,7 +145,7 @@ def scrape_all_links(advice, project_type, keywords_override=None):
         # "oreilly_links": [],
         # "napa_links": [],
         # "carparts_links": [],
-        "tonkinautoparts_links": [],
+        # "tonkinautoparts_links": [],
     }
 
     for kw in keywords:
@@ -163,5 +163,5 @@ def scrape_all_links(advice, project_type, keywords_override=None):
             # all_links["oreilly_links"] += safe(scrape_oreilly_links, kw)
             # all_links["napa_links"] += safe(scrape_napa_links, kw)
             # all_links["carparts_links"] += safe(scrape_carparts_links, kw)
-            all_links["tonkinautoparts_links"] += safe(scrape_tonkinautoparts_links, kw)
+            # all_links["tonkinautoparts_links"] += safe(scrape_tonkinautoparts_links, kw)
     return all_links
