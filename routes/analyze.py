@@ -24,7 +24,7 @@ from services.scraping import (
     scrape_walmart_links,
     scrape_harborfreight_links,
     scrape_autozone_links,
-    scrape_tonkinautoparts_links,
+    # scrape_tonkinautoparts_links,
     wrap_named_links
 )
 router = APIRouter()
@@ -260,7 +260,7 @@ async def analyze_image(
             # "bestbuy_links",
             # "oreilly_links",
             # "napa_links"
-            "tonkinautoparts_links"
+            # "tonkinautoparts_links"
         ]
 
         store_matches = {key: [] for key in store_keys}
@@ -352,7 +352,7 @@ async def analyze_image(
             "autozone_links": "autozoneLinks",
             # "oreilly_links": "oreillyLinks",
             # "napa_links": "napaLinks"
-            "tonkinautoparts_links": "tonkinautopartsLinks"
+            # "tonkinautoparts_links": "tonkinautopartsLinks"
         }
 
         camel_case_links = {
